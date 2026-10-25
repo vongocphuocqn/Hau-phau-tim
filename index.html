@@ -375,6 +375,7 @@ function canAdmin(){return !S.shareRo&&['open','admin'].includes(role())}
 async function hashPin(pin){const str='hpt|'+pin;try{const b=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(str));return [...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,'0')).join('')}
   catch(e){let h=5381;for(const c of str)h=((h<<5)+h+c.charCodeAt(0))|0;return 'f'+(h>>>0).toString(16)}}
 function renderWho(){const el=$('#who');if(!el)return;const r=role(),u=curUser();
+  if(S.shareRo){el.innerHTML='<span class="who"><span class="rb xem">Chỉ xem</span></span>';const bn=$('#btnNew');if(bn)bn.hidden=true;const bi=$('#btnImp');if(bi)bi.hidden=true;return}
   if(r==='open'){el.innerHTML='';}
   else if(!u&&S.isOwner)el.innerHTML=`<span class="who"><b>${esc(S.me||'Chủ sở hữu')}</b><span class="rb admin">Quản trị</span></span>`;
   else if(u)el.innerHTML=`<span class="who"><b>${esc(u.ten)}</b><span class="rb ${u.role}">${ROLES[u.role]}</span><button class="btn sm ghost" data-act="mypin">Đổi PIN</button><button class="btn sm ghost" data-act="logout">Đăng xuất</button></span>`;
@@ -528,14 +529,14 @@ function makeSheetStore(url,key){
     for(const[p,d]of Object.entries(docs)){if(!p.startsWith(pre))continue;const a=p.slice(pre.length).split('/');if(a.length!==2||!d)continue;
       if(a[0]==='obs'&&d.k)out.obs[d.k]=d;else if(a[0]==='labs'&&d.k)out.labs[d.k]=d;else if(a[0]==='orders'&&d.id)out.orders[d.id]=d}return out};
   const fireAll=()=>{const m=pats();L.pl.forEach(f=>f(m));L.cfg.forEach(f=>f(docs['config/main']||null));for(const pid of Object.keys(L.pw))L.pw[pid].forEach(f=>f(pdata(pid)))};
-  const status=()=>{if(lastErr)setSync('err',lastErr);else if(outbox.length)setSync('local','Đang gửi '+outbox.length+' thay đổi…');else setSync('ok','Dùng chung (Google Sheet)')};
+  const status=()=>{if(st&&st.ro){setSync('ok','Chỉ xem (dữ liệu chung)');return}if(lastErr)setSync('err',lastErr);else if(outbox.length)setSync('local','Đang gửi '+outbox.length+' thay đổi…');else setSync('ok','Dùng chung (Google Sheet)')};
   async function pull(full){
     const r=await fetch(url+(url.includes('?')?'&':'?')+'key='+encodeURIComponent(key)+'&since='+(full?0:ver),{cache:'no-store'});
     const j=await r.json();if(!j.ok)throw new Error(j.error==='sai_ma'?'Sai mã khoa':'Máy chủ báo lỗi');
     let changed=full;if(full){const keep={};for(const o of outbox)keep[o.path]=docs[o.path];docs={};Object.assign(docs,keep)}
     const pend=new Set(outbox.map(o=>o.path));
     for(const[p,d]of Object.entries(j.docs||{})){if(pend.has(p))continue;if(d===null){if(p in docs){delete docs[p];changed=true}}else if(JSON.stringify(docs[p])!==JSON.stringify(d)){docs[p]=d;changed=true}}
-    ver=Math.max(ver,j.t||0);persist();lastErr=null;status();if(changed)fireAll();
+    st.ro=!!j.ro;ver=Math.max(ver,j.t||0);persist();lastErr=null;status();if(changed)fireAll();
   }
   async function flush(){if(flushing||!outbox.length)return;flushing=true;const batch=outbox.slice(0,40);
     try{const r=await fetch(url,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({key,ops:batch})});const j=await r.json();
@@ -543,12 +544,12 @@ function makeSheetStore(url,key){
       outbox=outbox.filter(o=>!batch.includes(o));lsSet('hpt-outbox',outbox);lastErr=null}
     catch(e){lastErr='Chưa gửi được – đang thử lại';setTimeout(flush,15000)}
     finally{flushing=false;status();if(outbox.length&&!lastErr)setTimeout(flush,300)}}
-  function queue(op){outbox=outbox.filter(o=>o.path!==op.path);outbox.push(op);lsSet('hpt-outbox',outbox);status();clearTimeout(ftimer);ftimer=setTimeout(flush,600)}
+  function queue(op){if(st.ro)return;outbox=outbox.filter(o=>o.path!==op.path);outbox.push(op);lsSet('hpt-outbox',outbox);status();clearTimeout(ftimer);ftimer=setTimeout(flush,600)}
   const set=(p,d)=>{docs[p]=d;persist();queue({op:'set',path:p,data:d})};
   const del=p=>{delete docs[p];persist();queue({op:'del',path:p})};
   const ok=k=>k.replace(/\D/g,'');
   let polling=null;
-  const st={kind:'sheet',url,
+  var st={kind:'sheet',url,ro:false,
     async init(){await pull(true);polling=setInterval(()=>{if(document.visibilityState==='visible'&&!outbox.length)pull(false).catch(e=>{lastErr='Mất kết nối Google Sheet';status()})},25000);
       window.addEventListener('focus',()=>pull(false).catch(()=>{}));if(outbox.length)flush()},
     pullNow(){return pull(false)},
@@ -574,7 +575,9 @@ function connModal(){
    <p class="hint" style="margin:0">${conn?'Máy này <b>đang dùng chung</b> dữ liệu với cả kíp qua Google Sheet của khoa.':'Máy này đang lưu riêng. Nhập địa chỉ Google Sheet (Web app) và mã khoa để dùng chung với cả kíp, hoặc mở <b>link mời</b> Quản trị gửi qua Zalo.'}</p>
    <label class="fld"><span>Địa chỉ Web app (https://script.google.com/macros/s/…/exec)</span><input class="inp" id="cn_u" value="${esc(c.u||'')}" ${conn?'disabled':''} autocomplete="off"></label>
    <label class="fld"><span>Mã khoa</span><input class="inp" id="cn_k" type="password" value="${esc(c.k||'')}" ${conn?'disabled':''} autocomplete="off"></label>
-   ${conn&&canAdmin()?`<div class="banner info">Gửi <b>link mời</b> cho nhân viên qua Zalo (tin nhắn riêng): mở link là máy tự kết nối. Link chứa mã khoa – không đăng công khai.</div><button class="btn" data-m="inv">Sao chép link mời</button><input class="inp" id="cn_l" readonly hidden>`:''}
+   ${conn&&canAdmin()&&!store.ro?`<div class="banner info"><b>Link chỉ xem</b>: gửi cho mọi người – xem trên mọi điện thoại, máy tính, không sửa được. <b>Link nhập liệu</b>: chỉ gửi riêng cho nhân viên được phân công. Không đăng công khai.</div>
+     <label class="fld"><span>Mã chỉ xem (MA_XEM trong Apps Script)</span><input class="inp" id="cn_x" type="password" value="${esc(c.x||'')}" autocomplete="off"></label>
+     <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn pri" data-m="invx">Sao chép link chỉ xem</button><button class="btn" data-m="inv">Sao chép link nhập liệu</button></div><input class="inp" id="cn_l" readonly hidden>`:''}
    ${conn&&nLocal?`<button class="btn" data-m="up">Đưa ${nLocal} hồ sơ đang lưu riêng trên máy này lên dữ liệu chung</button>`:''}
    <div class="acts">${conn?'<button class="btn danger" data-m="off" style="margin-right:auto">Ngắt kết nối</button>':''}<button class="btn" data-m="cancel">Đóng</button>${conn?'':'<button class="btn pri" data-m="ok">Kết nối</button>'}${conn?'<button class="btn pri" data-m="ok" hidden></button>':''}</div>`,async r=>{
     if(conn)return;const u=r.querySelector('#cn_u').value.trim(),k=r.querySelector('#cn_k').value.trim();
@@ -583,8 +586,12 @@ function connModal(){
       if(!t.has('config/main')&&local.cfg&&Array.isArray(local.cfg.staff)&&local.cfg.staff.length)t.saveCfg(local.cfg);else lsSet('hpt-login',null);toast('Kết nối thành công – đang tải lại');setTimeout(()=>location.reload(),600)}
     catch(e){toast((e&&e.message)||'Không kết nối được, kiểm tra lại địa chỉ và mã');return false}});
   const off=document.querySelector('[data-m="off"]');if(off)off.onclick=()=>{lsSet('hpt-sync',null);lsSet('hpt-sheet-cache',null);toast('Đã ngắt kết nối');setTimeout(()=>location.reload(),500)};
-  const inv=document.querySelector('[data-m="inv"]');if(inv)inv.onclick=async()=>{const link=location.origin+location.pathname+'#kn='+b64e({u:c.u,k:c.k});
-    try{await navigator.clipboard.writeText(link);toast('Đã sao chép link mời – dán vào Zalo')}catch(e){const l=document.querySelector('#cn_l');l.hidden=false;l.value=link;l.select();toast('Bôi đen sẵn – bấm Ctrl+C để sao chép')}};
+  const copyLink=async(k,label)=>{const link=location.origin+location.pathname+'#kn='+b64e({u:c.u,k});
+    try{await navigator.clipboard.writeText(link);toast('Đã sao chép '+label+' – dán vào Zalo')}catch(e){const l=document.querySelector('#cn_l');l.hidden=false;l.value=link;l.select();toast('Bôi đen sẵn – bấm Ctrl+C để sao chép')}};
+  const inv=document.querySelector('[data-m="inv"]');if(inv)inv.onclick=()=>copyLink(c.k,'link nhập liệu');
+  const invx=document.querySelector('[data-m="invx"]');if(invx)invx.onclick=async()=>{const x=document.querySelector('#cn_x').value.trim();if(!x){toast('Nhập mã chỉ xem (MA_XEM)');return}
+    try{const r=await fetch(c.u+(c.u.includes('?')?'&':'?')+'key='+encodeURIComponent(x)+'&since='+Date.now());const j=await r.json();if(!j.ok||!j.ro){toast(j.ok?'Mã này là mã nhập liệu, không phải mã chỉ xem':'Mã chỉ xem không đúng');return}}catch(e){toast('Không kiểm tra được mã, thử lại');return}
+    lsSet('hpt-sync',{...c,x});copyLink(x,'link chỉ xem')};
   const up=document.querySelector('[data-m="up"]');if(up)up.onclick=async()=>{for(const[pid,p]of Object.entries(local.patients||{})){const id=S.patients[pid]?'p'+uid():pid;await store.importPatient(id,{info:p.info,obs:p.obs||{},labs:p.labs||{},orders:p.orders||{}})}
     lsSet('hpt-data-dagui',local);lsSet('hpt-data',{patients:{},cfg:local.cfg||null});$('#modalRoot').innerHTML='';toast('Đã đưa '+nLocal+' hồ sơ lên dữ liệu chung');renderAll()};
 }
@@ -686,7 +693,7 @@ function renderMain(){
     m.innerHTML=`<div class="card empty"><h2>Chưa chọn bệnh nhân</h2><p>Tạo hồ sơ bệnh nhân mới khi bệnh nhân về hồi sức. Ứng dụng tự lập lịch theo dõi mỗi giờ trong 24 giờ đầu, sau đó mỗi 3 giờ, và xuất báo cáo Word theo mẫu của khoa.</p>
     <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center"><button class="btn pri" data-act="new">+ Bệnh nhân mới</button><button class="btn" data-act="demo">Tạo hồ sơ mẫu để dùng thử</button><button class="btn" data-act="import">Khôi phục từ file sao lưu</button><button class="btn ghost" data-act="settings">Cài đặt ngưỡng cảnh báo</button></div></div>`;return}
   m.innerHTML=`${S.mode==='local'?'<div class="banner warn">Đang lưu riêng trên máy này, người khác không thấy. Bấm nút <b>Lưu trên máy này</b> ở góc trên để kết nối dữ liệu chung của khoa.</div>':''}
-   ${S.shareRo?'<div class="banner crit">Anh/chị đang ở quyền chỉ xem trên link chia sẻ: không ghi được số liệu.</div>':S.ro?`<div class="banner warn">${curUser()?'Tài khoản của anh/chị chỉ có quyền xem.':'Đang ở chế độ chỉ xem. Bấm <b>Đăng nhập ca</b> để nhập liệu.'}</div>`:''}
+   ${S.shareRo?'<div class="banner info">Link chỉ xem: anh/chị xem được toàn bộ hồ sơ và xuất báo cáo, không sửa được số liệu.</div>':S.ro?`<div class="banner warn">${curUser()?'Tài khoản của anh/chị chỉ có quyền xem.':'Đang ở chế độ chỉ xem. Bấm <b>Đăng nhập ca</b> để nhập liệu.'}</div>`:''}
    <section class="card">${headHtml()}${tabsHtml()}<div class="tab-body" id="tabBody"></div></section>`;
   renderTab();
 }
@@ -750,6 +757,7 @@ function obsTabHtml(){
   const ser=f=>filled.map(k=>({y:num(S.obs[k][f])}));
   const trends=`<div class="trends">${spark('Mạch','l/ph',ser('m'))}${spark('HA tâm thu','mmHg',ser('hatt'))}${spark('SpO₂','%',ser('spo2'))}${spark('Nước tiểu','ml/giờ',ser('nuoctieu'))}${spark('Dẫn lưu','ml/giờ',ser('danluu'))}${spark('Bilan cộng dồn','ml',cumS)}</div>`;
   if(!S.sel||!keys.includes(S.sel)){S.sel=keys.find(k=>status(k,S.obs[k])==='due')||filled[filled.length-1]||[...keys].reverse().find(k=>status(k,S.obs[k])==='late')||keys[0]}
+  if(S.ro&&!S.obsView)S.obsView='table';
   const sw=`<div class="vsw"><button class="${S.obsView!=='table'?'on':''}" data-act="vform">Phiếu nhập từng mốc</button><button class="${S.obsView==='table'?'on':''}" data-act="vtable">Bảng diễn biến (${filled.length} mốc)</button></div>`;
   if(S.obsView==='table')return trends+sw+obsTableHtml(filled);
   return trends+sw+`<div class="obs"><div style="min-width:0">${timelineHtml(keys)}</div><div style="min-width:0" id="formBox">${formHtml(S.sel)}</div></div>`;
@@ -765,7 +773,7 @@ function obsTableHtml(filled){
 function timelineHtml(keys){
   const p=S.info;const groups={};keys.forEach(k=>{const n=dayN(k,p);(groups[n]=groups[n]||[]).push(k)});
   const nums=Object.keys(groups).map(Number).sort((a,b)=>b-a);
-  let html=`<div class="tl-tools"><button class="btn sm pri" data-act="now">Ghi mốc hiện tại</button><button class="btn sm" data-act="extra">+ Mốc bổ sung</button></div><div class="tl" id="tl">`;
+  let html=`${S.ro?'':'<div class="tl-tools"><button class="btn sm pri" data-act="now">Ghi mốc hiện tại</button><button class="btn sm" data-act="extra">+ Mốc bổ sung</button></div>'}<div class="tl" id="tl">`;
   for(const n of nums){
     const ks=groups[n].slice().reverse();const d=fromKey(ks[0]);
     const done=ks.filter(k=>hasData(S.obs[k])).length;
@@ -1467,7 +1475,7 @@ document.addEventListener('change',e=>{
 let _dl=null;const capDownloads={then(r,j){if(!_dl)_dl=(window.claude&&window.claude.use)?Promise.resolve(window.claude.use('downloads')).catch(()=>null):Promise.resolve(null);return _dl.then(r,j)}};
 function start(st){
   store=st;S.mode=st.kind;
-  setSync(st.kind==='local'?'local':'ok',st.kind==='db'?'Đồng bộ cho cả kíp':st.kind==='sheet'?'Dùng chung (Google Sheet)':'Lưu trên máy này – bấm để kết nối');
+  setSync(st.kind==='local'?'local':'ok',st.kind==='db'?'Đồng bộ cho cả kíp':st.kind==='sheet'?(st.ro?'Chỉ xem (dữ liệu chung)':'Dùng chung (Google Sheet)'):'Lưu trên máy này – bấm để kết nối');
   st.watchCfg(c=>{if(st.kind!=='db'&&!(c&&Array.isArray(c.staff)&&c.staff.length)){c={...(c||{}),staff:DEFAULT_STAFF};st.saveCfg({...S.cfg,...c})}
     if(c&&!pendingKeys.has('cfg')){S.cfg={...JSON.parse(JSON.stringify(CFG_DEF)),...c,th:{...TH_DEF,...(c.th||{})}};renderWho();if(S.tab==='caidat'&&!document.activeElement.closest('#main'))renderMain()}});
   let first=true;
@@ -1492,7 +1500,7 @@ renderList();renderMain();
   }else{
     const h=location.hash||'';if(h.startsWith('#kn=')){try{const v=b64d(h.slice(4));if(v.u&&v.k){lsSet('hpt-sync',{u:v.u,k:v.k});lsSet('hpt-sheet-cache',null)}}catch(e){}try{history.replaceState(null,'',location.pathname+location.search)}catch(e){}}
     const sy=syncConf();
-    if(sy){const ss=makeSheetStore(sy.u,sy.k);try{await ss.init();start(ss)}catch(e){const c=lsGet('hpt-sheet-cache',null);
+    if(sy){const ss=makeSheetStore(sy.u,sy.k);try{await ss.init();if(ss.ro)S.shareRo=true;start(ss)}catch(e){const c=lsGet('hpt-sheet-cache',null);
       if(c&&c.docs){start(ss);setSync('err','Mất kết nối – đang xem bản lưu gần nhất')}else{start(makeLocalStore());setSync('err',(e&&e.message)||'Không kết nối được Google Sheet')}}}
     else start(makeLocalStore());
   }
