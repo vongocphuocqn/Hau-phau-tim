@@ -276,6 +276,7 @@ fieldset{border:0;margin:0;padding:0;min-width:0}
   <div class="sp"></div>
   <span class="sync" id="sync"><i></i><span>Đang kết nối…</span></span>
   <span id="who"></span>
+  <button class="btn" data-act="import" id="btnImp" title="Nạp dữ liệu từ file sao lưu (.json)">Nhập dữ liệu</button>
   <button class="btn pri" id="btnNew" data-act="new">+ Bệnh nhân mới</button>
 </header>
 
@@ -946,7 +947,7 @@ function reportTabHtml(){
    <label class="fld"><span>Mốc trong giai đoạn theo dõi mỗi giờ</span><select class="inp" id="r_step" data-rep="step">${[[1,'Tất cả các giờ'],[2,'Mỗi 2 giờ'],[3,'Mỗi 3 giờ'],[4,'Mỗi 4 giờ']].map(([v,l])=>`<option value="${v}" ${+S.rep.step===v?'selected':''}>${l}</option>`).join('')}</select></label>
    <label class="fld" style="flex-direction:row;align-items:center;gap:6px;padding-bottom:6px"><input type="checkbox" id="r_only" data-rep="only" ${S.rep.only?'checked':''}> <span style="text-transform:none;font-size:13px;color:var(--ink);font-weight:500;letter-spacing:0">Chỉ mốc đã có số liệu</span></label>
    <span style="flex:1"></span>
-   <button class="btn pri" data-act="export">Xuất Word (.docx)</button><button class="btn" data-act="xlsx">Xuất Excel (.xlsx)</button><button class="btn" data-act="backup">Sao lưu (.json)</button></div>
+   <button class="btn pri" data-act="export">Xuất Word (.docx)</button><button class="btn" data-act="xlsx">Xuất Excel (.xlsx)</button><button class="btn" data-act="backup">Sao lưu (.json)</button><button class="btn" data-act="import">Nhập dữ liệu (.json)</button></div>
    <div class="paper-wrap"><div class="paper" id="paper">${paperHtml()}</div></div>`;
 }
 function paperHtml(){
@@ -1256,9 +1257,23 @@ function newPatient(){
   });
 }
 async function createDemo(){const d=makeDemo(new Date());const pid='pmau'+uid();S.patients[pid]=d.info;await store.importPatient(pid,d);S.tab='theodoi';openPatient(pid);toast('Đã tạo hồ sơ mẫu (dữ liệu ví dụ).')}
-function importFile(){const i=document.createElement('input');i.type='file';i.accept='.json,application/json';
-  i.onchange=()=>{const f=i.files[0];if(!f)return;const rd=new FileReader();rd.onload=async()=>{try{const d=JSON.parse(rd.result);if(!d.info)throw 0;
-    const pid=d.pid&&!S.patients[d.pid]?d.pid:'p'+uid();S.patients[pid]=d.info;await store.importPatient(pid,{info:d.info,obs:d.obs||{},labs:d.labs||{},orders:d.orders||{}});openPatient(pid);toast('Đã khôi phục hồ sơ '+(d.info.hoTen||''))}catch(e){toast('File không đúng định dạng sao lưu của ứng dụng')}};rd.readAsText(f)};i.click()}
+async function importAsNew(d){const pid=d.pid&&!S.patients[d.pid]?d.pid:'p'+uid();S.patients[pid]=d.info;await store.importPatient(pid,{info:d.info,obs:d.obs||{},labs:d.labs||{},orders:d.orders||{}});openPatient(pid);toast('Đã nhập hồ sơ '+(d.info.hoTen||''))}
+function mergeInto(d){const pid=S.cur;let nO=0,nL=0,nC=0;
+  for(const[k,o]of Object.entries(d.obs||{})){if(!hasData(o))continue;if(hasData(S.obs[k]))continue;S.obs[k]=o;store.saveObs(pid,k,o);nO++}
+  for(const[k,o]of Object.entries(d.labs||{})){if(S.labs[k]&&Object.keys(S.labs[k].v||{}).length)continue;S.labs[k]=o;store.saveLab(pid,k,o);nL++}
+  for(const[id,o]of Object.entries(d.orders||{})){if(S.orders[id])continue;S.orders[id]=o;store.saveOrder(pid,id,o);nC++}
+  const inf={...S.info};let nI=0;for(const[f,v]of Object.entries(d.info||{})){if(['taoLuc','hoTen'].includes(f))continue;if(!has(inf[f])&&has(v)){inf[f]=v;nI++}}
+  if(d.info&&d.info.labNotes){inf.labNotes={...(d.info.labNotes||{}),...(S.info.labNotes||{})}}
+  S.info=inf;S.patients[pid]=inf;store.saveInfo(pid,inf);renderAll();
+  toast(`Đã gộp: ${nO} mốc theo dõi, ${nL} mốc xét nghiệm${nC?', '+nC+' chỉ định':''}${nI?', '+nI+' trường thông tin':''}. Mốc đã có số liệu được giữ nguyên.`)}
+function importFile(){if(S.ro){needLogin();return}const i=document.createElement('input');i.type='file';i.accept='.json,application/json';i.style.display='none';document.body.appendChild(i);
+  i.onchange=()=>{const f=i.files[0];i.remove();if(!f)return;const rd=new FileReader();rd.onload=()=>{let d;try{d=JSON.parse(rd.result);if(!d.info)throw 0}catch(e){toast('File không đúng định dạng dữ liệu của ứng dụng');return}
+    if(!S.cur||!S.info){importAsNew(d);return}
+    const nObs=Object.values(d.obs||{}).filter(hasData).length,nLab=Object.keys(d.labs||{}).length;
+    modal(`<h3>Nhập dữ liệu: ${esc(d.info.hoTen||'(không tên)')}</h3><p class="hint" style="margin:0">File có ${nObs} mốc theo dõi, ${nLab} mốc xét nghiệm.</p>
+     <p style="margin:0">Gộp vào hồ sơ đang mở <b>${esc(S.info.hoTen||'')}</b>? Các mốc hồ sơ đang có số liệu được giữ nguyên, chỉ thêm các mốc còn trống. Thông tin trống sẽ được điền từ file.</p>
+     <div class="acts"><button class="btn" data-m="cancel">Huỷ</button><button class="btn" data-m="new">Tạo hồ sơ mới</button><button class="btn pri" data-m="ok">Gộp vào hồ sơ này</button></div>`,()=>{mergeInto(d)});
+    const nb=document.querySelector('[data-m="new"]');if(nb)nb.onclick=()=>{$('#modalRoot').innerHTML='';importAsNew(d)}};rd.readAsText(f)};i.click()}
 
 document.addEventListener('click',e=>{
   const t=e.target.closest('button');if(!t)return;
