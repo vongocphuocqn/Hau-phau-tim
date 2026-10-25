@@ -180,7 +180,7 @@ textarea{resize:vertical;min-height:38px}
 .flag{font-size:13px;padding:5px 10px;border-radius:6px}
 .flag.crit{background:var(--crit-soft);color:var(--crit);font-weight:600}
 .flag.warn{background:var(--warn-soft)}
-.form-f{display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:10px 12px;background:var(--panel-2);border-top:1px solid var(--line);border-radius:0 0 var(--r) var(--r)}
+.form-f{position:sticky;bottom:0;z-index:4;box-shadow:0 -2px 8px rgba(0,0,0,.06);display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:10px 12px;background:var(--panel-2);border-top:1px solid var(--line);border-radius:0 0 var(--r) var(--r)}
 .form-f .sp{flex:1}
 .saved{font-size:12px;color:var(--muted)}
 
@@ -293,7 +293,7 @@ fieldset{border:0;margin:0;padding:0;min-width:0}
 <header class="top">
   <div class="brand">
     <svg width="34" height="34" viewBox="0 0 34 34" aria-hidden="true"><rect width="34" height="34" rx="8" fill="var(--accent)"/><path d="M4 18h6l3-7 4 13 3-9 2 3h8" fill="none" stroke="var(--on-accent)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-    <div><h1>Theo dõi Hậu phẫu Tim</h1><small>Khoa Gây mê Hồi sức · BVĐK Trung tâm tỉnh Gia Lai · <b>bản 26/10-A</b></small></div>
+    <div><h1>Theo dõi Hậu phẫu Tim</h1><small>Khoa Gây mê Hồi sức · BVĐK Trung tâm tỉnh Gia Lai · <b>bản 26/10-C</b></small></div>
   </div>
   <div class="sp"></div>
   <button class="sync" id="sync" data-act="conn" title="Kết nối dữ liệu chung"><i></i><span>Đang kết nối…</span></button>
@@ -747,11 +747,12 @@ function intervalAtH(info,h){return segAt(getPlan(info),h).I}
 function startHour(info){const a=arrivalDate(info);if(!a)return null;const s=new Date(a);if(s.getMinutes()||s.getSeconds()){s.setMinutes(0,0,0);s.setHours(s.getHours()+1)}return s}
 function hourly(info){const P=getPlan(info);let n=0;while(n<P.days.length&&P.days[n]===1)n++;return n?P.ends[n-1]:0}
 function slotOK(t,h,info){const g=segAt(getPlan(info),h);if(typeof g.I==='string')return hoursOf(g.I).includes(t.getHours());return (h-g.st)%g.I===0}
-function schedule(info,obs){
+function schedule(info,obs,full){
   const set=new Set(Object.keys(obs||{}));const s=startHour(info);
   if(s){
     const now=new Date();const curD=Math.max(0,Math.floor((now-s)/864e5));
     let end=new Date(Math.max(now.getTime()+ivNum(intervalAtH(info,Math.max(0,(now-s)/36e5)))*36e5,s.getTime()));
+    if(full){const eod=new Date(now);eod.setHours(23,59,0,0);if(eod>end)end=eod}
     if(info.trangThai&&info.trangThai!=='dang'){const ks=Object.keys(obs||{}).sort();end=ks.length?fromKey(ks[ks.length-1]):new Date(s.getTime()+24*36e5)}
     const cap=s.getTime()+21*864e5;if(end>cap)end=new Date(cap);
     for(let h=0;;h++){const t=new Date(s.getTime()+h*36e5);if(t>end)break;if(h===0||slotOK(t,h,info))set.add(toKey(t))}
@@ -902,7 +903,7 @@ function spark(label,unit,vals,dec){
 }
 function obsTabHtml(){
   const p=S.info;if(!arrivalDate(p))return `<div class="banner info">Nhập <b>giờ về hồi sức</b> ở tab “Thông tin bệnh nhân” để ứng dụng lập lịch theo dõi.</div><div style="margin-top:10px"><button class="btn pri" data-tab="thongtin">Nhập thông tin</button></div>`;
-  const keys=schedule(p,S.obs);const filled=keys.filter(k=>hasData(S.obs[k]));
+  const keys=schedule(p,S.obs,true);const filled=keys.filter(k=>hasData(S.obs[k]));
   let cum=0;const cumS=filled.map(k=>{const b=bilan(S.obs[k]);if(!isNaN(b))cum+=b;return {y:cum}});
   const ser=f=>filled.map(k=>({y:num(S.obs[k][f])}));
   const pbar=`<div class="planbar"><span><b>Lịch theo dõi:</b> ${esc(planText(p))}${(Array.isArray(p.extraSlots)&&p.extraSlots.length)?` · ${p.extraSlots.length} mốc khai báo thêm`:''}</span>${canAdmin()&&!S.ro?'<button class="btn sm" data-act="editplan">⚙ Sửa lịch bệnh nhân này</button>':''}</div>`;
@@ -932,25 +933,25 @@ function timelineHtml(keys){
   const nums=Object.keys(groups).map(Number).sort((a,b)=>b-a);
   if(S.tlDay!=null&&!nums.includes(S.tlDay))S.tlDay=null;
   const dsel=`<label class="tl-daysel"><span>Ngày</span><select class="inp" id="tlDay"><option value="">Tất cả các ngày</option>${nums.map(n=>{const d=fromKey(groups[n][0]);return `<option value="${n}" ${S.tlDay===n?'selected':''}>N${n} · ${pad(d.getDate())}/${pad(d.getMonth()+1)}/${d.getFullYear()}</option>`}).join('')}</select></label>`;
-  const shw=S.tlShow||'';const ssel=`<label class="tl-daysel"><span>Hiển thị</span><select class="inp" id="tlShow"><option value="">Tất cả mốc</option><option value="chua" ${shw==='chua'?'selected':''}>Chỉ mốc chưa nhập</option><option value="da" ${shw==='da'?'selected':''}>Chỉ mốc đã nhập</option></select></label>`;
+  const shw=S.tlShow||'';const ssel=`<label class="tl-daysel"><span>Hiển thị</span><select class="inp" id="tlShow"><option value="">Tất cả mốc</option><option value="chua" ${shw==='chua'?'selected':''}>Chỉ mốc chưa nhập</option><option value="da" ${shw==='da'?'selected':''}>Chỉ mốc đã nhập</option><option value="up" ${shw==='up'?'selected':''}>Chỉ mốc chưa đến giờ</option></select></label>`;
   let html=`<div class="tl-tools">${S.ro?'':'<button class="btn sm pri" data-act="now">Ghi mốc hiện tại</button><button class="btn sm" data-act="extra">'+(canAdmin()?'+ Khai báo mốc':'+ Mốc bổ sung')+'</button>'}${dsel}${ssel}</div><div class="tl" id="tl">`;
   for(const n of nums){if(S.tlDay!=null&&n!==S.tlDay)continue;
     const ks=groups[n].slice().reverse();const d=fromKey(ks[0]);
     const done=ks.filter(k=>hasData(S.obs[k])).length;
     html+=`<div class="tl-day" data-n="${n}"><span>N${n} · ${pad(d.getDate())}/${pad(d.getMonth()+1)}${n===0?' · ngày phẫu thuật':''}</span><span class="dsum">${dsumTxt(done,ks)}${(()=>{const F=dayFluid(n);return F.n?` · bilan ${signed(F.bil)} ml`:''})()}</span></div>`;
-    const vis=ks.filter(k=>!shw||(shw==='da'?hasData(S.obs[k]):!hasData(S.obs[k])&&status(k,S.obs[k])!=='up'));
-    html+=vis.length?vis.map(k=>rowHtml(k)).join(''):`<div class="hint" style="padding:8px 12px">${shw==='chua'?'Ngày này đã nhập đủ các mốc.':'Chưa có mốc nào đã nhập.'}</div>`;
+    const vis=ks.filter(k=>!shw||(shw==='da'?hasData(S.obs[k]):shw==='up'?!hasData(S.obs[k])&&status(k,S.obs[k])==='up':!hasData(S.obs[k])&&status(k,S.obs[k])!=='up'));
+    html+=vis.length?vis.map(k=>rowHtml(k)).join(''):`<div class="hint" style="padding:8px 12px">${shw==='chua'?'Ngày này không có mốc trễ chưa nhập.':shw==='up'?'Không còn mốc chưa đến giờ.':'Chưa có mốc nào đã nhập.'}</div>`;
   }
   return html+'</div>';
 }
-function dsumTxt(done,ks){const miss=ks.filter(k=>!hasData(S.obs[k])&&status(k,S.obs[k])!=='up').length;return `đã nhập ${done}/${ks.length}`+(miss?` · chưa nhập ${miss}`:'')}
+function dsumTxt(done,ks){const miss=ks.filter(k=>!hasData(S.obs[k])&&status(k,S.obs[k])!=='up').length;const up=ks.filter(k=>!hasData(S.obs[k])&&status(k,S.obs[k])==='up').length;return `${ks.length} mốc · đã nhập ${done}`+(miss?` · chưa nhập ${miss}`:'')+(up?` · chưa đến giờ ${up}`:'')}
 function rowHtml(k){
   const o=S.obs[k],st=status(k,o);const fl=flagsOf(o,k);
   const v=hasData(o)?[o.m&&'M '+o.m,(o.hatt||o.hatr)&&'HA '+(o.hatt||'?')+'/'+(o.hatr||'?'),o.spo2&&'SpO₂ '+o.spo2,o.nuoctieu&&'Tiểu '+o.nuoctieu,o.danluu&&'DL '+o.danluu].filter(Boolean).join(' · ')
-    :({up:'Sắp tới',due:'Đến giờ ghi',late:'Chưa nhập'}[st]);
+    :({up:'Chưa đến giờ',due:'Đến giờ ghi',late:'Chưa nhập'}[st]);
   const crit=fl.m.filter(x=>x.l==='crit').length,warn=fl.m.length-crit;
   const extra=o&&o.slot&&o.slot!==k?'<span class="badge extra">đổi giờ</span>':!isScheduled(k,S.info)?'<span class="badge extra">bổ sung</span>':'';
-  const badge='<span class="bdg">'+(st==='done'?'<span class="badge ok">✓ Đã nhập</span>':st==='late'?'<span class="badge late">Chưa nhập</span>':st==='due'?'<span class="badge due">Nhập ngay</span>':'')+(crit?`<span class="badge crit">${crit} nặng</span>`:warn?`<span class="badge warn">${warn} lưu ý</span>`:'')+extra+'</span>';
+  const badge='<span class="bdg">'+(st==='done'?'<span class="badge ok">✓ Đã nhập</span>':st==='late'?'<span class="badge late">Chưa nhập</span>':st==='due'?'<span class="badge due">Nhập ngay</span>':st==='up'?'<span class="badge extra">Chưa đến giờ</span>':'')+(crit?`<span class="badge crit">${crit} nặng</span>`:warn?`<span class="badge warn">${warn} lưu ý</span>`:'')+extra+'</span>';
   return `<button class="tl-row ${k===S.sel?'on':''}" data-k="${k}"><span class="dot ${st}"></span><span class="t num">${hhmm(k)}</span><span class="v">${esc(v)}</span>${badge}</button>`;
 }
 function nf(f,label,unit,o,fl,cls=''){return `<label class="fld"><span>${label}</span><input class="n ${cls} ${fl[f]||''}" inputmode="decimal" data-f="${f}" id="o_${f}" value="${esc(o[f]??'')}" autocomplete="off"><small class="u">${unit}</small></label>`}
@@ -982,6 +983,7 @@ function formHtml(k){
    </fieldset>
    <div class="form-f"><label class="fld"><span>Người ghi</span><input id="meInp" class="inp" value="${esc(curUser()?curUser().ten:S.me)}" ${curUser()?'disabled title="Theo người đăng nhập ca"':''} placeholder="Họ tên điều dưỡng/BS" style="width:200px"></label><span class="sp"></span>
      <span class="saved" id="savedNote">${o.at?'Cập nhật '+hLabel(toKey(new Date(o.at))):''}</span>
+     ${!S.ro&&(!hasData(o)||canEditRec(o.byId))?'<button class="btn pri" data-act="saveobs">💾 Lưu mốc này</button><button class="btn" data-act="savenext">Lưu &amp; sang mốc kế →</button>':''}
      ${(hasData(o)||!isScheduled(k,p))&&canEditRec(o.byId)?`<button class="btn sm danger" data-act="clearobs">${isScheduled(k,p)?'Xoá số liệu mốc':'Xoá mốc bổ sung'}</button>`:''}</div>
   </div>`;
 }
@@ -1010,7 +1012,7 @@ function refreshFormBits(k){
   const o=S.obs[k]||{},fl=flagsOf(o,k);
   const fe=$('#flags');if(fe)fe.innerHTML=flagsHtml(fl);
   const ft=$('#fluidTot');if(ft)ft.innerHTML=fluidHtml(k);
-  {const n=dayN(k,S.info);const ds=document.querySelector(`.tl-day[data-n="${n}"] .dsum`);if(ds){const ks=schedule(S.info,S.obs).filter(x=>dayN(x,S.info)===n);const F=dayFluid(n);ds.textContent=dsumTxt(ks.filter(x=>hasData(S.obs[x])).length,ks)+(F.n?` · bilan ${signed(F.bil)} ml`:'')}}const rh=$('#raHint');if(rh)rh.textContent=o.raTay?'nhập tay':'tự tính';
+  {const n=dayN(k,S.info);const ds=document.querySelector(`.tl-day[data-n="${n}"] .dsum`);if(ds){const ks=schedule(S.info,S.obs,true).filter(x=>dayN(x,S.info)===n);const F=dayFluid(n);ds.textContent=dsumTxt(ks.filter(x=>hasData(S.obs[x])).length,ks)+(F.n?` · bilan ${signed(F.bil)} ml`:'')}}const rh=$('#raHint');if(rh)rh.textContent=o.raTay?'nhập tay':'tự tính';
   document.querySelectorAll('#formBox input.n').forEach(i=>{i.classList.remove('warn','crit');const l=fl.f[i.dataset.f];if(l)i.classList.add(l)});
   const b=bilan(o);const bo=$('#bilanOut');if(bo)bo.innerHTML=`Bilan: <span class="num">${isNaN(b)?'—':signed(b)+' ml'}</span>`;
   const row=document.querySelector(`.tl-row[data-k="${k}"]`);if(row){const t=document.createElement('div');t.innerHTML=rowHtml(k);row.replaceWith(t.firstChild)}
@@ -1620,7 +1622,7 @@ document.addEventListener('click',e=>{
   if(act==='fblogout'){lsSet('hpt-fbuser',null);S.fbUser=null;S.me='';renderAll();toast('Đã đăng xuất – đang ở chế độ xem');return}
   if(act==='mypin'){const u=curUser();if(u)staffModal(u);return}
   if(act==='logout'){S.login=null;lsSet('hpt-login',null);renderAll();toast('Đã đăng xuất');return}
-  const WRITE=['movek','report','reportadd','new','demo','import','extra','copyprev','calcra','clearobs','addlab','dellab','suggest','planadd','planrem','planpre','plancfg'];
+  const WRITE=['saveobs','savenext','movek','report','reportadd','new','demo','import','extra','copyprev','calcra','clearobs','addlab','dellab','suggest','planadd','planrem','planpre','plancfg'];
   if((WRITE.includes(act)||t.id==='btnNew')&&S.ro){needLogin();return}
   if((['delpt','resetth','staffdel','orderadd','orderend','orderdel','efadd','efdel'].includes(act)||(act==='staffadd'&&staffList().length)||(t.dataset.scope==='cfg'))&&!canAdmin()){toast('Cần quyền Quản trị');return}
   if(act==='orderadd')return orderModal();
@@ -1648,7 +1650,13 @@ document.addEventListener('click',e=>{
   if(act==='viewrep'){S.tab='baocao';renderMain();setTimeout(()=>{const w=document.querySelector('.paper-wrap');if(w)w.scrollIntoView({behavior:'smooth',block:'start'})},60);return}
   if(act==='backup')return backup();
   if(act==='now'){const keys=schedule(S.info,S.obs);const now=new Date();const k=[...keys].reverse().find(k=>fromKey(k)<=now)||keys[0];selectKey(k);const f=$('#o_m');if(f)f.focus();return}
-  if(act==='nextk'){const keys=schedule(S.info,S.obs);const i=keys.indexOf(S.sel);if(i<keys.length-1)selectKey(keys[i+1]);return}
+  if(act==='saveobs'||act==='savenext'){const k=S.sel,pid=S.cur;if(!k)return;const a=document.activeElement;if(a&&a.blur)a.blur();const o=S.obs[k];
+    if(hasData(o)&&!canEditRec(o.byId)){toast('Mốc này do '+(o.by||'người khác')+' ghi');return}
+    if(!hasData(o)){toast('Mốc '+hLabel(k)+' chưa có số liệu để lưu');return}
+    clearTimeout(deb['obs'+pid+k]);pendingKeys.delete('obs'+pid+k);store.saveObs(pid,k,o);flashSaved();toast('✓ Đã lưu mốc '+hLabel(k));
+    if(act==='savenext'){const keys=schedule(S.info,S.obs,true);const i=keys.indexOf(k);if(i<keys.length-1){selectKey(keys[i+1]);const f=$('#formBox');if(f)f.scrollIntoView({block:'start',behavior:'smooth'})}}
+    else{const sn=$('#savedNote');if(sn)sn.textContent='✓ Đã lưu lúc '+hhmm(toKey(new Date()))}return}
+  if(act==='nextk'){const keys=schedule(S.info,S.obs,true);const i=keys.indexOf(S.sel);if(i<keys.length-1)selectKey(keys[i+1]);return}
   if(act==='movek'){const k=S.sel;const o=S.obs[k]||{};if(hasData(o)&&!canEditRec(o.byId)){toast('Mốc này do '+(o.by||'người khác')+' ghi');return}
     modal(`<h3>Đổi ngày/giờ mốc ${hLabel(k)}</h3><p class="hint" style="margin:0">Dùng khi thời điểm đo thực tế khác giờ trên lịch (ví dụ đo lúc 0h15 thay vì 0h). Số liệu đã ghi được chuyển sang thời điểm mới; mốc lịch cũ được tính là đã ghi.</p><div class="fld"><span>Thời điểm thực tế</span>${dtHtml('mv_t',k)}</div><div class="acts"><button class="btn" data-m="cancel">Huỷ</button><button class="btn pri" data-m="ok">Đổi giờ</button></div>`,r=>{
       const k2=dtVal('mv_t',r);if(!k2)return false;if(k2===k)return;
