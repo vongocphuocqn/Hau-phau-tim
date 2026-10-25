@@ -120,6 +120,7 @@ h1,h2,h3{text-wrap:balance;margin:0}
 .hgrid{display:grid;grid-template-columns:repeat(6,1fr);gap:4px}.hcb{display:flex;align-items:center;justify-content:center;gap:4px;border:1px solid var(--line);border-radius:8px;padding:6px 0;cursor:pointer;font-size:13px}.hcb:has(input:checked){background:var(--accent-soft);border-color:var(--accent-2)}.hcb input{margin:0}
 .phg{display:grid;grid-template-columns:repeat(12,26px);gap:3px}.ph{height:24px;border:1px solid var(--line);border-radius:5px;background:transparent;font-size:11px;color:var(--muted);padding:0;font-family:inherit}.ph.on{background:var(--accent);border-color:var(--accent);color:var(--on-accent);font-weight:600}.ph:disabled{cursor:default}
 .hml{display:flex;flex-wrap:wrap;gap:4px 10px;font-size:12px}.hm{white-space:nowrap}
+.planbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between;background:var(--panel-2);border:1px solid var(--line);border-radius:10px;padding:8px 12px;margin-bottom:10px;font-size:13px}
 .tl-tools{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px;align-items:center}
 .tl-daysel{display:flex;align-items:center;gap:6px;margin-left:auto;font-size:12px;color:var(--muted);font-weight:600}.tl-daysel select{height:32px;padding:2px 8px;font-size:13px;width:auto}
 .tl{border:1px solid var(--line);border-radius:var(--r);max-height:640px;overflow:auto;background:var(--panel)}
@@ -290,7 +291,7 @@ fieldset{border:0;margin:0;padding:0;min-width:0}
 <header class="top">
   <div class="brand">
     <svg width="34" height="34" viewBox="0 0 34 34" aria-hidden="true"><rect width="34" height="34" rx="8" fill="var(--accent)"/><path d="M4 18h6l3-7 4 13 3-9 2 3h8" fill="none" stroke="var(--on-accent)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-    <div><h1>Theo dõi Hậu phẫu Tim</h1><small>Khoa Gây mê Hồi sức · BVĐK Trung tâm tỉnh Gia Lai · <b>bản 25/10-L</b></small></div>
+    <div><h1>Theo dõi Hậu phẫu Tim</h1><small>Khoa Gây mê Hồi sức · BVĐK Trung tâm tỉnh Gia Lai · <b>bản 25/10-M</b></small></div>
   </div>
   <div class="sp"></div>
   <button class="sync" id="sync" data-act="conn" title="Kết nối dữ liệu chung"><i></i><span>Đang kết nối…</span></button>
@@ -766,6 +767,8 @@ function phaseText(info){const a=arrivalDate(info);if(!a)return null;const h=(Da
   const I=intervalAtH(info,h),g=`Giờ thứ ${Math.floor(h)} sau về HS`;
   return I===1?{t:`${g} · theo dõi mỗi giờ`,slow:false}:typeof I==='string'?{t:`${g} · ${hoursOf(I).length} mốc/ngày`,slow:true}:{t:`${g} · theo dõi mỗi ${I} giờ`,slow:true}}
 const PLAN_PRE=[['h:7,19','2 lần/ngày (7h, 19h)'],['h:8,16','2 lần/ngày (8h, 16h)'],['h:6,14,22','3 lần/ngày (6h, 14h, 22h)'],['h:0,6,12,18','4 lần/ngày (0h, 6h, 12h, 18h)'],['h:6,10,14,18,22','5 lần/ngày (6h–22h, mỗi 4 giờ)'],['h:6,8,10,12,14,16,18,20,22','Ban ngày mỗi 2 giờ (6h–22h)']];
+function iTxt(I){if(I===1)return 'mỗi giờ';if(typeof I==='number')return 'mỗi '+I+' giờ';const pr=PLAN_PRE.find(([x])=>x===I);return pr?pr[1]:hoursOf(I).map(h=>h+'h').join(', ')}
+function planText(info){const P=getPlan(info);return P.days.map((I,i)=>`${iTxt(I)} đến giờ ${P.ends[i]}`).join(' → ')+` → sau đó ${iTxt(P.rest)}`}
 function planHtml(scope){
   const P=getPlan(scope==='cfg'?S.cfg:S.info);const ed=!S.ro&&canAdmin();
   const opt=v=>{const pre=PLAN_PRE.some(([x])=>x===v);return INTS.map(x=>`<option value="${x}" ${x===v?'selected':''}>Mỗi ${x} giờ</option>`).join('')+PLAN_PRE.map(([x,l])=>`<option value="${x}" ${x===v?'selected':''}>${l}</option>`).join('')+`<option value="custom" ${typeof v==='string'&&!pre?'selected':''}>Tự chọn giờ…</option>`};
@@ -786,7 +789,7 @@ function planHtml(scope){
      <button class="btn sm ghost" data-act="planpre" data-scope="${scope}" data-p="1,2;3;24,36">Mỗi giờ đến giờ 24 → mỗi 2 giờ đến giờ 36 → mỗi 3 giờ</button>
      <button class="btn sm ghost" data-act="planpre" data-scope="${scope}" data-p="1,2;3;28,36">Mỗi giờ đến giờ 28 → mỗi 2 giờ đến giờ 36 → mỗi 3 giờ</button>
      <button class="btn sm ghost" data-act="planpre" data-scope="${scope}" data-p="1,2;3;48,72">Nặng: mỗi giờ đến giờ 48 → mỗi 2 giờ đến giờ 72 → mỗi 3 giờ</button>
-     ${scope==='info'?'<button class="btn sm" data-act="plancfg">Áp dụng lịch mặc định của khoa</button>':''}</div>
+     ${scope==='info'?'<button class="btn sm" data-act="plancfg">Áp dụng lịch mặc định của khoa</button>':'<button class="btn sm pri" data-act="planall">Áp dụng cho bệnh nhân đang theo dõi</button>'}</div>
     <p class="hint" style="margin:6px 0 0">Giờ thứ tính từ lúc hồi sức tiếp nhận (giờ 0 = giờ về hồi sức, làm tròn lên giờ chẵn). Quản trị gõ “đến giờ thứ” cho từng giai đoạn (VD 24, 28, 36…) và chọn cách ghi: mỗi 1/2/3… giờ tính từ đầu giai đoạn, hoặc giờ cố định trong ngày (2–5 lần/ngày, tự chọn giờ). Số liệu đã ghi không bị mất khi đổi lịch.</p>`;
 }
 function savePlan(scope,P){
@@ -898,7 +901,8 @@ function obsTabHtml(){
   const keys=schedule(p,S.obs);const filled=keys.filter(k=>hasData(S.obs[k]));
   let cum=0;const cumS=filled.map(k=>{const b=bilan(S.obs[k]);if(!isNaN(b))cum+=b;return {y:cum}});
   const ser=f=>filled.map(k=>({y:num(S.obs[k][f])}));
-  const trends=`<div class="trends">${spark('Mạch','l/ph',ser('m'))}${spark('HA tâm thu','mmHg',ser('hatt'))}${spark('SpO₂','%',ser('spo2'))}${spark('Nước tiểu','ml/giờ',ser('nuoctieu'))}${spark('Dẫn lưu','ml/giờ',ser('danluu'))}${spark('Bilan cộng dồn','ml',cumS)}</div>`;
+  const pbar=`<div class="planbar"><span><b>Lịch theo dõi:</b> ${esc(planText(p))}${(Array.isArray(p.extraSlots)&&p.extraSlots.length)?` · ${p.extraSlots.length} mốc khai báo thêm`:''}</span>${canAdmin()&&!S.ro?'<button class="btn sm" data-act="editplan">⚙ Sửa lịch bệnh nhân này</button>':''}</div>`;
+  const trends=pbar+`<div class="trends">${spark('Mạch','l/ph',ser('m'))}${spark('HA tâm thu','mmHg',ser('hatt'))}${spark('SpO₂','%',ser('spo2'))}${spark('Nước tiểu','ml/giờ',ser('nuoctieu'))}${spark('Dẫn lưu','ml/giờ',ser('danluu'))}${spark('Bilan cộng dồn','ml',cumS)}</div>`;
   if(!S.sel||!keys.includes(S.sel)){S.sel=keys.find(k=>status(k,S.obs[k])==='due')||filled[filled.length-1]||[...keys].reverse().find(k=>status(k,S.obs[k])==='late')||keys[0]}
   if(S.ro&&!S.obsView)S.obsView='table';
   const sw=`<div class="vsw"><button class="${S.obsView!=='table'?'on':''}" data-act="vform">Phiếu nhập từng mốc</button><button class="${S.obsView==='table'?'on':''}" data-act="vtable">Bảng diễn biến (${filled.length} mốc)</button></div>`;
@@ -1037,7 +1041,7 @@ function infoTabHtml(){
    <div class="sect-t">Hồi sức & lịch theo dõi</div><div class="igrid">
    <div class="fld"><span>Giờ về hồi sức</span>${dtHtml('i_veHoiSuc',S.info.veHoiSuc||'','data-info="veHoiSuc"')}</div>
    ${fi('trangThai','Trạng thái',{sel:[['dang','Đang theo dõi tại hồi sức'],['chuyen','Đã chuyển khoa'],['ravien','Đã ra viện']]})}</div>
-   <div style="margin-top:14px"><div class="fld"><span>Lịch theo dõi của bệnh nhân này</span></div>${planHtml('info')}</div>
+   <div style="margin-top:14px" id="planBox"><div class="fld"><span>Lịch theo dõi của bệnh nhân này ${canAdmin()?'(Quản trị chỉnh tại đây)':''}</span></div>${planHtml('info')}</div>
    <div class="sect-t">Báo cáo</div><div class="igrid">
    ${fi('soBaoCao','Số báo cáo (ca số)',{ph:'02'})}${fi('nguoiTongHop','Người tổng hợp báo cáo',{ph:myName()?'Mặc định: '+myName():''})}${fi('truongKip','Trưởng kíp theo dõi')}
    ${fi('vanDe','III. Vấn đề cần theo dõi sát (mỗi dòng một ý)',{ta:1,wide:true,rows:4})}</div>
@@ -1589,6 +1593,10 @@ document.addEventListener('click',e=>{
   if(S.ro&&['quick','suggest','planadd','planrem','planpre','plancfg','new','demo'].includes(act))return;
   if(!canAdmin()&&['import','backup','delpt','settings'].includes(act))return;
   if(act==='saveinfo')return saveInfoNow();
+  if(act==='editplan'){S.tab='thongtin';renderMain();setTimeout(()=>{const b=$('#planBox');if(b)b.scrollIntoView({block:'start',behavior:'smooth'})},50);return}
+  if(act==='planall'){if(!canAdmin())return;const C=getPlan(S.cfg);const ids=Object.keys(S.patients).filter(id=>{const i=S.patients[id]||{};return !i.trangThai||i.trangThai==='dang'});
+    modal(`<h3>Áp dụng lịch mặc định cho bệnh nhân đang theo dõi?</h3><p class="hint" style="margin:0">${ids.length} bệnh nhân đang theo dõi sẽ dùng lịch: <b>${esc(planText(S.cfg))}</b>. Số liệu đã ghi không bị mất. Mốc khai báo thêm vẫn giữ.</p><div class="acts"><button class="btn" data-m="cancel">Huỷ</button><button class="btn pri" data-m="ok">Áp dụng</button></div>`,()=>{
+      ids.forEach(id=>{const inf={...S.patients[id],plan:C.days.slice(),planRest:C.rest,planEnd:C.ends.slice()};S.patients[id]=inf;store.saveInfo(id,inf);if(id===S.cur)S.info=inf});renderMain();toast('Đã áp dụng cho '+ids.length+' bệnh nhân')});return}
   if(act==='quick')return quickModal();
   if(act==='conn'){if(S.mode==='fb'){toast('Đang dùng dữ liệu chung của khoa (Firebase Kanban)');return}return connModal()}
   if(act==='fblogin')return fbLogin();
