@@ -7,6 +7,8 @@
 <script src="https://cdn.jsdelivr.net/npm/docx@8.5.0/build/index.umd.js"></script>
 <style>
 /* Layout: bảng điều khiển hồi sức — danh sách BN bên trái, vùng làm việc theo tab bên phải; số liệu canh cột như bảng theo dõi giấy */
+.savebar{position:sticky;top:0;z-index:6;display:flex;gap:10px;align-items:center;justify-content:flex-end;flex-wrap:wrap;padding:8px 0;margin:-4px 0 4px;background:var(--panel);border-bottom:1px solid var(--line)}
+.savebar .hint{flex:1;min-width:160px}
 :root{
   --bg:#EDF1F4; --panel:#FFFFFF; --panel-2:#F6F8FA; --ink:#13202E; --muted:#5A6A7A; --line:#D3DCE4;
   --accent:#1F4E79; --accent-2:#2C6AA0; --accent-soft:#E2EBF4; --on-accent:#FFFFFF;
@@ -280,7 +282,7 @@ fieldset{border:0;margin:0;padding:0;min-width:0}
 <header class="top">
   <div class="brand">
     <svg width="34" height="34" viewBox="0 0 34 34" aria-hidden="true"><rect width="34" height="34" rx="8" fill="var(--accent)"/><path d="M4 18h6l3-7 4 13 3-9 2 3h8" fill="none" stroke="var(--on-accent)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-    <div><h1>Theo dõi Hậu phẫu Tim</h1><small>Khoa Gây mê Hồi sức · BVĐK Trung tâm tỉnh Gia Lai · <b>bản 25/10-B</b></small></div>
+    <div><h1>Theo dõi Hậu phẫu Tim</h1><small>Khoa Gây mê Hồi sức · BVĐK Trung tâm tỉnh Gia Lai · <b>bản 25/10-C</b></small></div>
   </div>
   <div class="sp"></div>
   <button class="sync" id="sync" data-act="conn" title="Kết nối dữ liệu chung"><i></i><span>Đang kết nối…</span></button>
@@ -980,7 +982,7 @@ function fi(id,label,opts={}){const v=S.info[id]??'';const cls=opts.wide?'fld wi
   if(opts.sel)return `<label class="${cls}"><span>${label}</span><select data-i="${id}" id="i_${id}">${opts.sel.map(([a,b])=>`<option value="${a}" ${String(v)===String(a)?'selected':''}>${b}</option>`).join('')}</select></label>`;
   return `<label class="${cls}"><span>${label}</span><input type="${opts.type||'text'}" data-i="${id}" id="i_${id}" value="${esc(v)}" ${opts.ph?`placeholder="${esc(opts.ph)}"`:''} ${opts.im?`inputmode="${opts.im}"`:''}></label>`}
 function infoTabHtml(){
-  return `<div class="sect-t">Hành chính</div><div class="igrid">
+  return `${S.ro?'':`<div class="savebar"><span id="infoSt" class="hint">${S.infoDirty?'Có thay đổi – đang lưu…':'Thông tin tự lưu khi nhập. Bấm Lưu để chắc chắn đã ghi.'}</span><button class="btn pri" data-act="saveinfo">💾 Lưu thông tin</button></div>`}<div class="sect-t">Hành chính</div><div class="igrid">
    ${fi('hoTen','Họ và tên')}${fi('namSinh','Ngày/năm sinh',{ph:'31/10/1967'})}${fi('gioi','Giới',{sel:[['',''],['Nam','Nam'],['Nữ','Nữ']]})}
    ${fi('soHS','Số hồ sơ / mã BN')}${fi('giuong','Giường')}${fi('ngheNghiep','Nghề nghiệp')}${fi('diaChi','Địa chỉ',{wide:true})}</div>
    <div class="sect-t">Phẫu thuật</div><div class="igrid">
@@ -1535,6 +1537,7 @@ document.addEventListener('click',e=>{
   if(act==='login')return loginModal();
   if(S.ro&&['quick','suggest','planadd','planrem','planpre','plancfg','new','demo'].includes(act))return;
   if(!canAdmin()&&['import','backup','delpt','settings'].includes(act))return;
+  if(act==='saveinfo')return saveInfoNow();
   if(act==='quick')return quickModal();
   if(act==='conn'){if(S.mode==='fb'){toast('Đang dùng dữ liệu chung của khoa (Firebase Kanban)');return}return connModal()}
   if(act==='fblogin')return fbLogin();
@@ -1593,7 +1596,9 @@ document.addEventListener('click',e=>{
     savePlan(sc,P);toast('Đã cập nhật lịch theo dõi');return}
   if(act==='resetth'){S.cfg.th=JSON.parse(JSON.stringify(TH_DEF));store.saveCfg(S.cfg);renderTab();toast('Đã khôi phục ngưỡng mặc định');return}
 });
-function setInfo(f,v){S.info={...S.info,[f]:v};const pid=S.cur;S.patients[pid]=S.info;later('info'+pid,()=>store.saveInfo(pid,S.info))}
+function setInfo(f,v){S.info={...S.info,[f]:v};const pid=S.cur;S.patients[pid]=S.info;S.infoDirty=1;infoSt('Có thay đổi – đang lưu…');later('info'+pid,()=>{store.saveInfo(pid,S.info);S.infoDirty=0;infoSt('✓ Đã lưu lúc '+hhmm(toKey(new Date())))})}
+function infoSt(t){const e=document.getElementById('infoSt');if(e)e.textContent=t}
+function saveInfoNow(){if(S.ro||!S.cur)return;const a=document.activeElement;if(a&&a.blur)a.blur();const pid=S.cur;clearTimeout(deb['info'+pid]);pendingKeys.delete('info'+pid);store.saveInfo(pid,S.info);S.infoDirty=0;flashSaved();infoSt('✓ Đã lưu lúc '+hhmm(toKey(new Date())));toast('Đã lưu thông tin bệnh nhân');renderList()}
 document.addEventListener('focusin',e=>{if(e.target&&e.target.id==='psearch')e.target.removeAttribute('readonly')});
 setTimeout(()=>{const i=document.getElementById('psearch');if(i&&i.value&&!S.q){i.value=''}},1500);
 document.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target&&e.target.id==='fb_name'){e.preventDefault();fbLogin()}});
