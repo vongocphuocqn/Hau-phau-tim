@@ -276,6 +276,7 @@ fieldset{border:0;margin:0;padding:0;min-width:0}
   <div class="sp"></div>
   <span class="sync" id="sync"><i></i><span>Đang kết nối…</span></span>
   <span id="who"></span>
+  <button class="btn" data-act="quick" id="btnQuick">Xem nhanh</button>
   <button class="btn" data-act="import" id="btnImp" title="Nạp dữ liệu từ file sao lưu (.json)">Nhập dữ liệu</button>
   <button class="btn pri" id="btnNew" data-act="new">+ Bệnh nhân mới</button>
 </header>
@@ -319,6 +320,9 @@ const TH_DEF={
   danluu:{l:'Dẫn lưu (ml/giờ)',wh:100,ch:200},
   dh:{l:'Đường huyết (mmol/L)',cl:3,wl:4,wh:10,ch:14}
 };
+const DEFAULT_STAFF=[{id:'u_admin',ten:'Quản trị khoa',chucDanh:'Trưởng khoa / ĐD trưởng',role:'admin',pin:''},
+  {id:'u_van',ten:'Lê Thị Thúy Vân',chucDanh:'',role:'nhap',pin:''},{id:'u_nhieu',ten:'Hồ Thái Nhiều',chucDanh:'',role:'nhap',pin:''},
+  {id:'u_hang',ten:'Trương Thị Thu Hằng',chucDanh:'',role:'nhap',pin:''},{id:'u_chien',ten:'Phạm Thị Chiến',chucDanh:'',role:'nhap',pin:''}];
 const CFG_DEF={plan:[1],planRest:3,donviTren:'BỆNH VIỆN THỐNG NHẤT',donviTren2:'TP. HỒ CHÍ MINH',donviPhai:'BỆNH VIỆN ĐKTT GIA LAI',donviPhai2:'',th:TH_DEF};
 
 /* ============ TIỆN ÍCH ============ */
@@ -391,6 +395,22 @@ function loginModal(){const st=staffList().slice().sort((a,b)=>a.ten.localeCompa
     S.login={id,at:Date.now()};lsSet('hpt-login',S.login);S.me=u.ten;lsSet('hpt-me',S.me);renderAll();toast('Xin chào '+u.ten+' – quyền '+ROLES[u.role])});
   const sel=document.querySelector('#lg_u');const sync=()=>{const u=staffList().find(x=>x.id===sel.value);const first=u&&!u.pin;document.querySelector('#lg_first').hidden=!first;document.querySelector('#lg_p2w').hidden=!first;document.querySelector('#lg_pl').textContent=first?'Đặt mã PIN mới':'Mã PIN'};
   sel.onchange=sync;sync();setTimeout(()=>{const p=document.querySelector('#lg_p');if(p)p.focus()},50)}
+function quickModal(){
+  const u=curUser(),r=role();const st=staffList();
+  const who=r==='open'?'<span class="rb nhap">Chưa bật phân quyền – ai cũng nhập được</span>':u?`<b>${esc(u.ten)}</b> <span class="rb ${role()}">${ROLES[role()]}</span>`:S.isOwner?'<b>Chủ sở hữu</b> <span class="rb admin">Quản trị</span>':'<span class="rb xem">Chưa đăng nhập – chỉ xem</span>';
+  modal(`<h3>Xem nhanh</h3>
+   <div><div class="sect-t" style="margin-top:0">Người đang dùng</div>${who}</div>
+   <div><div class="sect-t">Danh sách phân công</div>${st.length?`<table class="th" style="width:100%"><tr><th>Họ tên</th><th>Quyền</th><th>PIN</th></tr>${st.map(x=>`<tr><td>${esc(x.ten)}</td><td><span class="rb ${x.role}">${ROLES[x.role]}</span></td><td class="hint">${x.pin?'đã đặt':'chờ tự đặt'}</td></tr>`).join('')}</table>`:'<p class="hint" style="margin:0">Chưa có danh sách.</p>'}
+    <p class="hint" style="margin:6px 0 0">Người không có trong danh sách hoặc chưa đăng nhập: chỉ xem và xuất báo cáo, không sửa được. Nhập liệu chỉ sửa được mốc do mình ghi; Quản trị sửa được tất cả.</p></div>
+   <div><div class="sect-t">Nhập tiếp dữ liệu</div><ol style="margin:0;padding-left:18px;display:grid;gap:4px;font-size:13px">
+    <li>Bấm <b>Đăng nhập ca</b> (góc trên), chọn tên, nhập PIN (lần đầu tự đặt PIN).</li>
+    <li>Chọn bệnh nhân ở cột trái → tab <b>Theo dõi lâm sàng</b> → bấm <b>Ghi mốc hiện tại</b> hoặc bấm vào giờ cần ghi trong danh sách.</li>
+    <li>Nhập số liệu vào phiếu bên phải; app tự lưu, tự tính dịch ra, bilan. Diễn biến bất thường ngoài giờ: <b>+ Mốc bổ sung</b>.</li>
+    <li>Xét nghiệm: tab <b>Xét nghiệm</b> → chọn giờ lấy mẫu → <b>+ Thêm mốc xét nghiệm</b>. Chỉ định: tab <b>Chỉ định & báo cáo</b> → bấm vào mốc để báo cáo.</li></ol></div>
+   <div class="acts"><button class="btn" data-m="cancel">Đóng</button>${canAdmin()&&r!=='open'?'<button class="btn" data-m="mgr">Quản lý người dùng</button>':''}<button class="btn pri" data-m="ok">${!u&&!S.isOwner&&r!=='open'?'Đăng nhập ca':'Ghi mốc hiện tại'}</button></div>`,()=>{
+    setTimeout(()=>{if(!curUser()&&!S.isOwner&&role()!=='open')loginModal();else if(S.cur){S.tab='theodoi';S.obsView='form';renderAll();const b=document.querySelector('[data-act="now"]');if(b)b.click()}},30)});
+  const m=document.querySelector('[data-m="mgr"]');if(m)m.onclick=()=>{$('#modalRoot').innerHTML='';S.tab='caidat';renderAll()};
+}
 function renderAll(){renderWho();renderList();const sc=window.scrollY;renderMain();window.scrollTo(0,sc)}
 function saveStaff(list){S.cfg={...S.cfg,staff:list};later('cfg',()=>store.saveCfg(S.cfg),100);renderAll()}
 function staffModal(edit){const first=!staffList().length;const u=edit||{};
@@ -1287,6 +1307,7 @@ document.addEventListener('click',e=>{
   if(act==='vform'||act==='vtable'){S.obsView=act==='vtable'?'table':'form';renderTab();return}
   if(act==='opennk'){S.obsView='form';S.sel=t.dataset.k;renderTab();return}
   if(act==='login')return loginModal();
+  if(act==='quick')return quickModal();
   if(act==='mypin'){const u=curUser();if(u)staffModal(u);return}
   if(act==='logout'){S.login=null;lsSet('hpt-login',null);renderAll();toast('Đã đăng xuất');return}
   const WRITE=['report','reportadd','new','demo','import','extra','copyprev','calcra','clearobs','addlab','dellab','suggest','planadd','planrem','planpre','plancfg'];
@@ -1371,7 +1392,8 @@ let _dl=null;const capDownloads={then(r,j){if(!_dl)_dl=(window.claude&&window.cl
 function start(st){
   store=st;S.mode=st.kind;
   setSync(st.kind==='db'?'ok':'local',st.kind==='db'?'Đồng bộ cho cả kíp':'Lưu trên máy này');
-  st.watchCfg(c=>{if(c&&!pendingKeys.has('cfg')){S.cfg={...JSON.parse(JSON.stringify(CFG_DEF)),...c,th:{...TH_DEF,...(c.th||{})}};renderWho();if(S.tab==='caidat'&&!document.activeElement.closest('#main'))renderMain()}});
+  st.watchCfg(c=>{if(st.kind==='local'&&!(c&&Array.isArray(c.staff)&&c.staff.length)){c={...(c||{}),staff:DEFAULT_STAFF};st.saveCfg({...S.cfg,...c})}
+    if(c&&!pendingKeys.has('cfg')){S.cfg={...JSON.parse(JSON.stringify(CFG_DEF)),...c,th:{...TH_DEF,...(c.th||{})}};renderWho();if(S.tab==='caidat'&&!document.activeElement.closest('#main'))renderMain()}});
   let first=true;
   st.listPatients(m=>{
     for(const id of Object.keys(m)){if(id===S.cur&&pendingKeys.has('info'+id))m[id]=S.info}
