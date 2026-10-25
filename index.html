@@ -288,6 +288,7 @@ fieldset{border:0;margin:0;padding:0;min-width:0}
       <button data-f="dang" class="on">Đang theo dõi</button>
       <button data-f="all">Tất cả</button>
     </div>
+    <input class="inp" id="psearch" placeholder="Tìm tên, giường, số hồ sơ…" autocomplete="off" style="width:100%;margin-bottom:8px">
     <div class="plist" id="plist"></div>
   </aside>
   <main class="main" id="main"></main>
@@ -365,7 +366,7 @@ S.login=(()=>{const L=lsGet('hpt-login',null);return L&&Date.now()-L.at<12*36e5?
 function staffList(){return Array.isArray(S.cfg.staff)?S.cfg.staff:[]}
 function curUser(){const L=S.login;if(!L)return null;if(Date.now()-L.at>12*36e5){S.login=null;lsSet('hpt-login',null);return null}return staffList().find(x=>x.id===L.id)||null}
 function adminExists(){return staffList().some(x=>x.role==='admin')||S.mode==='db'}
-function role(){const u=curUser();if(u)return S.isOwner&&u.role!=='admin'?'admin':u.role;if(S.isOwner)return 'admin';if(!staffList().length||!adminExists())return 'open';return 'xem'}
+function role(){const u=curUser();if(u)return S.isOwner&&u.role!=='admin'?'admin':u.role;if(S.isOwner)return 'admin';if(S.mode!=='fb'&&(!staffList().length||!adminExists()))return 'open';return 'xem'}
 function actorId(){const u=curUser();return u?u.id:(S.isOwner?'owner':'')}
 function actorName(){const u=curUser();return u?u.ten:(S.me||(S.isOwner?'Quản trị':''))}
 /* người nào ghi thì người đó sửa (Quản trị sửa được tất cả) */
@@ -380,7 +381,7 @@ function renderWho(){const el=$('#who');if(!el)return;const r=role(),u=curUser()
   else if(!u&&S.isOwner)el.innerHTML=`<span class="who"><b>${esc(S.me||'Chủ sở hữu')}</b><span class="rb admin">Quản trị</span></span>`;
   else if(u)el.innerHTML=`<span class="who"><b>${esc(u.ten)}</b><span class="rb ${u.role}">${ROLES[u.role]}</span><button class="btn sm ghost" data-act="mypin">Đổi PIN</button><button class="btn sm ghost" data-act="logout">Đăng xuất</button></span>`;
   else el.innerHTML=`<span class="who"><span class="rb xem">Đang chỉ xem</span><button class="btn sm pri" data-act="login">Đăng nhập ca</button></span>`;
-  const bn=$('#btnNew');if(bn)bn.hidden=S.ro;}
+  const bn=$('#btnNew');if(bn)bn.hidden=S.ro;const bi=$('#btnImp');if(bi)bi.hidden=S.ro;}
 function needLogin(){if(S.shareRo){toast('Tài khoản chỉ có quyền xem trên link chia sẻ');return}if(!curUser())loginModal();else toast('Tài khoản của anh/chị chỉ có quyền xem')}
 function loginModal(){const st=staffList().slice().sort((a,b)=>a.ten.localeCompare(b.ten,'vi'));
   modal(`<h3>Đăng nhập ca trực</h3><label class="fld"><span>Người dùng</span><select class="inp" id="lg_u">${st.map(x=>`<option value="${x.id}">${esc(x.ten)}${x.chucDanh?' – '+esc(x.chucDanh):''} (${ROLES[x.role]})</option>`).join('')}</select></label>
@@ -396,6 +397,14 @@ function loginModal(){const st=staffList().slice().sort((a,b)=>a.ten.localeCompa
     S.login={id,at:Date.now()};lsSet('hpt-login',S.login);S.me=u.ten;lsSet('hpt-me',S.me);renderAll();toast('Xin chào '+u.ten+' – quyền '+ROLES[u.role])});
   const sel=document.querySelector('#lg_u');const sync=()=>{const u=staffList().find(x=>x.id===sel.value);const first=u&&!u.pin;document.querySelector('#lg_first').hidden=!first;document.querySelector('#lg_p2w').hidden=!first;document.querySelector('#lg_pl').textContent=first?'Đặt mã PIN mới':'Mã PIN'};
   sel.onchange=sync;sync();setTimeout(()=>{const p=document.querySelector('#lg_p');if(p)p.focus()},50)}
+async function fbQuickModal(){let pq={};try{pq=(await FB.db.ref('phanQuyen').once('value')).val()||{}}catch(e){}
+  const ad=[],nh=[],xe=[];for(const[n,p]of Object.entries(pq)){if(!p)continue;if(p.is_admin)ad.push(n);else if(p[FB_PERM_EDIT])nh.push(n);else if(p[FB_PERM_VIEW])xe.push(n)}
+  const li=a=>a.length?a.sort((x,y)=>x.localeCompare(y,'vi')).map(esc).join(', '):'<span class="hint">(chưa có)</span>';
+  modal(`<h3>Xem nhanh</h3><div><div class="sect-t" style="margin-top:0">Người đang dùng</div>${S.fbUser?`<b>${esc(S.fbUser.name)}</b> <span class="rb ${S.fbUser.role}">${ROLES[S.fbUser.role]}</span>`:'<span class="rb xem">Đang xem – chưa đăng nhập</span>'}</div>
+   <div><div class="sect-t">Phân quyền (theo app Kanban)</div><p style="margin:0 0 4px"><span class="rb admin">Quản trị</span> ${li(ad)}</p><p style="margin:0 0 4px"><span class="rb nhap">Nhập liệu</span> ${li(nh)}</p>
+   <p class="hint" style="margin:6px 0 0">Ai mở link cũng xem được (không cần đăng nhập). Nhập liệu chỉ sửa mốc do mình ghi; Quản trị sửa được tất cả. Đổi quyền: app Kanban → Phân quyền.</p></div>
+   <div><div class="sect-t">Nhập tiếp dữ liệu</div><ol style="margin:0;padding-left:18px;display:grid;gap:4px;font-size:13px"><li>Chọn bệnh nhân ở cột trái → tab <b>Theo dõi lâm sàng</b> → <b>Ghi mốc hiện tại</b> hoặc bấm giờ cần ghi.</li><li>Nhập vào phiếu bên phải; app tự lưu, tự tính dịch ra, bilan.</li><li>Xét nghiệm: tab <b>Xét nghiệm</b>. Chỉ định: tab <b>Chỉ định & báo cáo</b>.</li></ol></div>
+   <div class="acts"><button class="btn" data-m="cancel">Đóng</button><button class="btn pri" data-m="ok">Đóng</button></div>`,()=>{})}
 function quickModal(){
   const u=curUser(),r=role();const st=staffList();
   const who=r==='open'?'<span class="rb nhap">Chưa bật phân quyền – ai cũng nhập được</span>':u?`<b>${esc(u.ten)}</b> <span class="rb ${role()}">${ROLES[role()]}</span>`:S.isOwner?'<b>Chủ sở hữu</b> <span class="rb admin">Quản trị</span>':'<span class="rb xem">Chưa đăng nhập – chỉ xem</span>';
@@ -433,7 +442,8 @@ function staffModal(edit){const first=!staffList().length;const u=edit||{};
     const nu={id:'u'+uid(),ten,chucDanh:r.querySelector('#sf_c').value.trim(),role:first?'admin':r.querySelector('#sf_r').value,pin:h};
     if(first&&S.mode!=='db'){S.login={id:nu.id,at:Date.now()};lsSet('hpt-login',S.login);S.me=ten;lsSet('hpt-me',ten)}
     saveStaff([...staffList(),nu]);toast(first?'Đã bật phân quyền. Anh/chị đang đăng nhập với quyền Quản trị.':'Đã thêm '+ten)})}
-function staffHtml(){const st=staffList();const adm=canAdmin();
+function staffHtml(){if(false)return `<div class="sect-t">Người dùng & phân quyền</div><div class="banner info">Danh sách nhân viên và phân quyền dùng chung với app <b>Kanban GMHS</b>. Admin vào Kanban → <b>Phân quyền</b>, tick cột <b>Hậu phẫu tim</b> (nhập liệu) hoặc <b>Xem HP tim</b> (chỉ xem) cho từng người, bấm Lưu. Tài khoản <b>Admin HT</b> có toàn quyền.</div>`;
+  const st=staffList();const adm=canAdmin();
   const rows=st.map(x=>`<tr><td><b>${esc(x.ten)}</b>${S.login&&S.login.id===x.id?' <span class="hint">(đang đăng nhập)</span>':''}${x.pin?'':' <span class="badge due">chờ tự đặt PIN</span>'}</td><td>${esc(x.chucDanh||'')}</td>
     <td><select class="inp" data-staff="${x.id}" id="sr_${x.id}" ${adm?'':'disabled'}>${Object.entries(ROLES).map(([k,l])=>`<option value="${k}" ${x.role===k?'selected':''}>${l}</option>`).join('')}</select></td>
     <td>${adm?`<button class="btn sm" data-act="staffpin" data-id="${x.id}">Đặt lại PIN</button> <button class="btn sm danger" data-act="staffdel" data-id="${x.id}">Xoá</button>`:''}</td></tr>`).join('');
@@ -515,6 +525,91 @@ function makeDbStore(db){
     }
   };
 }
+/* ============ FIREBASE CỦA KHOA (dùng chung hệ thống Kanban GMHS) ============ */
+const FB_CONFIG={apiKey:"AIzaSyCYlt9_KavJx0wHAYzS0BZ5oQ9Fx_1bCPs",authDomain:"kanban-gmhs-gialai.firebaseapp.com",
+  databaseURL:"https://kanban-gmhs-gialai-default-rtdb.asia-southeast1.firebasedatabase.app",projectId:"kanban-gmhs-gialai",
+  storageBucket:"kanban-gmhs-gialai.firebasestorage.app",messagingSenderId:"263121492012",appId:"1:263121492012:web:6f14480e46476eb8125989"};
+const FB_APPCHECK_KEY='6Lf3__QtAAAAAD__BtrbmDoYkPzZuhpdKsBbQe_g';
+const FB_ROOT='hauPhauTim';
+const FB_PERM_EDIT='hauphautim',FB_PERM_VIEW='hauphautim_view';
+let FB=null;
+async function fbConnect(){
+  const base='https://www.gstatic.com/firebasejs/9.23.0/';
+  for(const f of['firebase-app-compat.js','firebase-app-check-compat.js','firebase-auth-compat.js','firebase-database-compat.js'])await loadScript(base+f);
+  const fb=window.firebase;if(!fb)throw new Error('nolib');
+  const app=fb.apps&&fb.apps.length?fb.app():fb.initializeApp(FB_CONFIG);
+  try{const prov=fb.appCheck.ReCaptchaEnterpriseProvider?new fb.appCheck.ReCaptchaEnterpriseProvider(FB_APPCHECK_KEY):FB_APPCHECK_KEY;fb.appCheck().activate(prov,true)}catch(e){console.warn('AppCheck',e)}
+  const db=fb.database();
+  await new Promise(res=>{let done=false;const fin=()=>{if(!done){done=true;try{db.goOnline()}catch(e){}res()}};try{db.goOffline()}catch(e){}
+    const t=setTimeout(fin,8000);try{const auth=fb.auth();auth.onAuthStateChanged(u=>{if(u){clearTimeout(t);fin()}else auth.signInAnonymously().catch(()=>{clearTimeout(t);fin()})},()=>{clearTimeout(t);fin()})}catch(e){clearTimeout(t);fin()}});
+  await Promise.race([db.ref(FB_ROOT+'/config').once('value'),new Promise((_,j)=>setTimeout(()=>j(new Error('timeout')),12000))]);
+  FB={fb,db};return db;
+}
+function fbClean(x){return JSON.parse(JSON.stringify(x??null))}
+function makeFbStore(db){
+  const R=p=>db.ref(FB_ROOT+'/'+p);const ok=k=>k.replace(/\D/g,'');
+  const fail=e=>{console.warn(e);setSync('err',/permission/i.test(String(e&&e.code||e))?'Firebase chặn ghi – cần mở quyền nút '+FB_ROOT:'Lỗi lưu, kiểm tra mạng')};
+  const put=(p,v)=>R(p).set(fbClean(v)).then(()=>setSync('ok','Dữ liệu chung của khoa')).catch(fail);
+  const rm=p=>R(p).remove().catch(fail);
+  const conn=db.ref('.info/connected');conn.on('value',s=>{if(s.val()===false)setSync('err','Mất kết nối – số liệu sẽ tự gửi khi có mạng');else setSync('ok','Dữ liệu chung của khoa')});
+  return {kind:'fb',
+    listPatients(cb){const f=s=>cb(s.val()||{});R('info').on('value',f,e=>setSync('err','Không đọc được dữ liệu (quyền Firebase)'));return()=>R('info').off('value',f)},
+    watchCfg(cb){const f=s=>cb(s.val());R('config').on('value',f,()=>{});return()=>R('config').off('value',f)},
+    saveCfg(c){put('config',c)},
+    watchPatient(pid,cb){let info=null,obs={},labs={},orders={};const ready=[0,0,0,0];const fire=i=>{ready[i]=1;if(ready.every(Boolean))cb({info,obs:{...obs},labs:{...labs},orders:{...orders}})};
+      const f0=s=>{info=s.val();fire(0)},f1=s=>{obs={};Object.values(s.val()||{}).forEach(v=>{if(v&&v.k)obs[v.k]=v});fire(1)},
+        f2=s=>{labs={};Object.values(s.val()||{}).forEach(v=>{if(v&&v.k)labs[v.k]={v:{},...v}});fire(2)},f3=s=>{orders={};Object.values(s.val()||{}).forEach(v=>{if(v&&v.id)orders[v.id]={reports:{},...v}});fire(3)};
+      R('info/'+pid).on('value',f0);R('obs/'+pid).on('value',f1);R('labs/'+pid).on('value',f2);R('orders/'+pid).on('value',f3);
+      return()=>{R('info/'+pid).off('value',f0);R('obs/'+pid).off('value',f1);R('labs/'+pid).off('value',f2);R('orders/'+pid).off('value',f3)}},
+    saveInfo(pid,info){put('info/'+pid,info)},
+    saveObs(pid,k,o){put(`obs/${pid}/t${ok(k)}`,o)},delObs(pid,k){rm(`obs/${pid}/t${ok(k)}`)},
+    saveLab(pid,k,o){put(`labs/${pid}/x${ok(k)}`,o)},delLab(pid,k){rm(`labs/${pid}/x${ok(k)}`)},
+    saveOrder(pid,id,o){put(`orders/${pid}/${id}`,o)},delOrder(pid,id){rm(`orders/${pid}/${id}`)},
+    async delPatient(pid){await Promise.all(['obs','labs','orders','info'].map(n=>R(n+'/'+pid).remove()))},
+    async importPatient(pid,p){const up={};up['info/'+pid]=fbClean(p.info);for(const[k,o]of Object.entries(p.obs||{}))up[`obs/${pid}/t${ok(k)}`]=fbClean(o);
+      for(const[k,o]of Object.entries(p.labs||{}))up[`labs/${pid}/x${ok(k)}`]=fbClean(o);for(const[id,o]of Object.entries(p.orders||{}))up[`orders/${pid}/${id}`]=fbClean(o);
+      await db.ref(FB_ROOT).update(up).catch(e=>{fail(e);throw e})}
+  };
+}
+/* đăng nhập theo danh sách nhân viên + phân quyền của Kanban */
+async function fbStaff(){const v=(await FB.db.ref('staffList').once('value')).val();let a=Array.isArray(v)?v:v&&typeof v==='object'?Object.values(v):[];return a.filter(x=>typeof x==='string'&&x.trim()).map(x=>x.trim()).sort((a,b)=>a.localeCompare(b,'vi'))}
+async function fbPerm(name){return (await FB.db.ref('phanQuyen').child(name).once('value')).val()||{}}
+function fbRoleOf(p){return p[FB_PERM_EDIT]?'nhap':p[FB_PERM_VIEW]?'xem':null}
+async function fbVerifySession(){const u=lsGet('hpt-fbuser',null);if(!u||!u.name||Date.now()-u.at>12*36e5)return null;
+  try{const p=await fbPerm(u.name);let r=fbRoleOf(p);if(u.role==='admin'&&p.is_admin)r='admin';if(!r)return null;return {name:u.name,role:r,at:u.at}}catch(e){return null}}
+function fbSetUser(u){$('#modalRoot').innerHTML='';S.fbUser=u;lsSet('hpt-fbuser',u);S.me=u?u.name:'';if(u){lsSet('hpt-me',u.name);startData()}renderAll()}
+function fbLoginModal(){modal(`<h3>Đăng nhập nhập liệu</h3>${fbGateHtml(true)}<div class="acts"><button class="btn" data-m="cancel">Huỷ</button><button class="btn pri" data-m="ok">Đăng nhập</button></div>`,()=>{fbLogin();return false});setTimeout(()=>{const x=$('#fb_name');if(x)x.focus()},50)}
+function fbGateHtml(inModal){
+  if(inModal)return `<p class="hint" style="margin:0">Xem thì không cần đăng nhập. Chỉ người được phân quyền <b>Hậu phẫu tim</b> trên app Kanban mới nhập/sửa được. Chọn đúng tên của anh/chị:</p>
+   <label class="fld"><span>Họ tên</span><input class="inp" id="fb_name" list="fb_list" autocomplete="off" placeholder="Gõ vài chữ để tìm, ví dụ: Thúy Vân"></label>
+   <datalist id="fb_list">${(S.fbStaff||[]).map(n=>`<option value="${esc(n)}">`).join('')}</datalist><div class="banner crit" id="fb_err" hidden></div>`;
+  return `<div class="card empty" style="text-align:left;justify-items:stretch;max-width:520px;margin:0 auto;width:100%">
+   <h2 style="text-align:center">Đăng nhập</h2>
+   <p style="text-align:center;margin:0 auto">Chọn đúng tên của anh/chị trong danh sách nhân viên khoa. Quyền xem/nhập theo phân quyền trên app Kanban (cột <b>Hậu phẫu tim</b> và <b>Xem HP tim</b>).</p>
+   <label class="fld"><span>Họ tên</span><input class="inp" id="fb_name" list="fb_list" autocomplete="off" placeholder="Gõ vài chữ để tìm, ví dụ: Thúy Vân"></label>
+   <datalist id="fb_list">${(S.fbStaff||[]).map(n=>`<option value="${esc(n)}">`).join('')}</datalist>
+   <div class="banner crit" id="fb_err" hidden></div>
+   <button class="btn pri" data-act="fblogin" style="justify-self:center">Vào xem / nhập liệu</button></div>`}
+async function fbLogin(){
+  const inp=$('#fb_name');const typed=(inp&&inp.value||'').trim();const err=$('#fb_err');const show=t=>{if(err){err.hidden=false;err.textContent=t}};
+  const list=S.fbStaff||[];let name=list.find(n=>n===typed)||null;
+  if(!name&&typed){const m=list.filter(n=>noAccent(n).toLowerCase().includes(noAccent(typed).toLowerCase()));if(m.length===1)name=m[0];else if(m.length>1){show('Có '+m.length+' người trùng – chọn đúng tên trong danh sách gợi ý');return}}
+  if(!name){show('Không tìm thấy tên trong danh sách nhân viên khoa');return}
+  let p;try{p=await fbPerm(name)}catch(e){show('Không đọc được phân quyền, kiểm tra mạng');return}
+  const normal=()=>{const r=fbRoleOf(p);if(r!=='nhap'){if(!$('#fb_err'))fbLoginModal();setTimeout(()=>{const e=$('#fb_err');if(e){e.hidden=false;e.textContent='“'+name+'” chưa được phân quyền nhập liệu Hậu phẫu tim. Anh/chị vẫn xem được toàn bộ mà không cần đăng nhập; muốn nhập liệu, liên hệ Admin khoa cấp quyền trên app Kanban.'}},60);return}
+    fbSetUser({name,role:r,at:Date.now()});toast('Xin chào '+name+' – quyền '+ROLES[r])};
+  if(!p.is_admin)return normal();
+  let sys='';try{sys=(await FB.db.ref('config/adminPwd').once('value')).val()||''}catch(e){}
+  if(!p.adminPass&&!sys){fbSetUser({name,role:'admin',at:Date.now()});toast('Xin chào '+name+' – quyền Quản trị');return}
+  modal(`<h3>Mật khẩu Quản lý</h3><p class="hint" style="margin:0">Tài khoản “${esc(name)}” có quyền Admin. Nhập mật khẩu Quản lý (giống app Kanban) để vào quyền Quản trị.</p>
+   <label class="fld"><span>Mật khẩu</span><input class="inp" type="password" id="fb_pw" autocomplete="current-password"></label>
+   <div class="acts"><button class="btn" data-m="cancel">Vào quyền thường</button><button class="btn pri" data-m="ok">Vào quyền Quản trị</button></div>`,r=>{
+    const pw=r.querySelector('#fb_pw').value;if(pw&&(pw===p.adminPass||pw===sys)){fbSetUser({name,role:'admin',at:Date.now()});toast('Xin chào '+name+' – quyền Quản trị');return}
+    toast('Sai mật khẩu Quản lý');r.querySelector('#fb_pw').value='';return false});
+  const c=document.querySelector('[data-m="cancel"]');if(c)c.onclick=()=>{$('#modalRoot').innerHTML='';normal()};
+  setTimeout(()=>{const x=$('#fb_pw');if(x)x.focus()},50);
+}
+
 /* ============ ĐỒNG BỘ GOOGLE SHEET (bản chạy ngoài Claude, ví dụ GitHub) ============ */
 function syncConf(){const c=lsGet('hpt-sync',null);return c&&c.u&&c.k?c:null}
 function b64e(o){return btoa(unescape(encodeURIComponent(JSON.stringify(o)))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'')}
@@ -678,7 +773,8 @@ function labFlag(a,v){if(a.text)return null;const x=num(v);if(isNaN(x))return nu
 
 /* ============ KHUNG CHÍNH ============ */
 function renderList(){
-  const ids=Object.keys(S.patients).filter(id=>S.filter==='all'||(S.patients[id].trangThai||'dang')==='dang')
+  const q=noAccent(S.q||'').toLowerCase();
+  const ids=Object.keys(S.patients).filter(id=>(S.filter==='all'||(S.patients[id].trangThai||'dang')==='dang')&&(!q||noAccent([S.patients[id].hoTen,S.patients[id].giuong,S.patients[id].soHS,S.patients[id].chanDoanTruoc].join(' ')).toLowerCase().includes(q)))
     .sort((a,b)=>(S.patients[b].veHoiSuc||'').localeCompare(S.patients[a].veHoiSuc||''));
   $('#pcount').textContent=Object.keys(S.patients).length?`${ids.length}/${Object.keys(S.patients).length}`:'';
   $('#plist').innerHTML=ids.length?ids.map(id=>{const p=S.patients[id];const a=arrivalDate(p);
@@ -693,7 +789,7 @@ function renderMain(){
     m.innerHTML=`<div class="card empty"><h2>Chưa chọn bệnh nhân</h2><p>Tạo hồ sơ bệnh nhân mới khi bệnh nhân về hồi sức. Ứng dụng tự lập lịch theo dõi mỗi giờ trong 24 giờ đầu, sau đó mỗi 3 giờ, và xuất báo cáo Word theo mẫu của khoa.</p>
     <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center"><button class="btn pri" data-act="new">+ Bệnh nhân mới</button><button class="btn" data-act="demo">Tạo hồ sơ mẫu để dùng thử</button><button class="btn" data-act="import">Khôi phục từ file sao lưu</button><button class="btn ghost" data-act="settings">Cài đặt ngưỡng cảnh báo</button></div></div>`;return}
   m.innerHTML=`${S.mode==='local'?'<div class="banner warn">Đang lưu riêng trên máy này, người khác không thấy. Bấm nút <b>Lưu trên máy này</b> ở góc trên để kết nối dữ liệu chung của khoa.</div>':''}
-   ${S.shareRo?'<div class="banner info">Link chỉ xem: anh/chị xem được toàn bộ hồ sơ và xuất báo cáo, không sửa được số liệu.</div>':S.ro?`<div class="banner warn">${curUser()?'Tài khoản của anh/chị chỉ có quyền xem.':'Đang ở chế độ chỉ xem. Bấm <b>Đăng nhập ca</b> để nhập liệu.'}</div>`:''}
+   ${S.shareRo?'<div class="banner info">Link chỉ xem: anh/chị xem được toàn bộ hồ sơ và xuất báo cáo, không sửa được số liệu.</div>':S.ro?`<div class="banner warn">${curUser()?'Tài khoản của anh/chị chỉ có quyền xem.':S.mode==='fb'?'Đang xem (không cần đăng nhập). Chọn bệnh nhân ở cột trái hoặc gõ tìm. Người được phân công nhập liệu bấm <b>Đăng nhập ca</b>.':'Đang ở chế độ chỉ xem. Bấm <b>Đăng nhập ca</b> để nhập liệu.'}</div>`:''}
    <section class="card">${headHtml()}${tabsHtml()}<div class="tab-body" id="tabBody"></div></section>`;
   renderTab();
 }
@@ -862,7 +958,7 @@ function labTabHtml(){
   const rows=ANALYTES.map(a=>`<tr><td>${a.l}</td>${ks.map(k=>{const v=(S.labs[k].v||{})[a.k]??'';const fl=labFlag(a,v);
      return `<td><input class="${a.text?'txt':''} ${fl||''}" ${a.text?'':'inputmode="decimal"'} data-lab="${k}" data-a="${a.k}" ${canEditRec(S.labs[k].byId)?'':'disabled'} id="l_${a.k}_${k.replace(/\D/g,'')}" value="${esc(v)}"></td>`}).join('')}
      <td><input class="note" data-note="${a.k}" id="n_${a.k}" value="${esc(notes[a.k]||'')}" placeholder="…"></td><td class="ref num">${a.text?'':(a.lo!=null?fmtN(a.lo):'')+(a.lo!=null||a.hi!=null?' – ':'')+(a.hi!=null?fmtN(a.hi):'')}</td></tr>`).join('');
-  return `<div class="lab-add"><div class="fld"><span>Thời điểm lấy mẫu</span>${dtHtml('labTime',def)}</div><button class="btn pri" data-act="addlab">+ Thêm mốc xét nghiệm</button>
+  return `<div class="lab-add" ${S.ro?'hidden':''}><div class="fld"><span>Thời điểm lấy mẫu</span>${dtHtml('labTime',def)}</div><button class="btn pri" data-act="addlab">+ Thêm mốc xét nghiệm</button>
    <span class="hint">Giá trị ngoài khoảng tham chiếu hiện chữ đỏ. Dùng dấu phẩy hoặc chấm đều được.</span></div>
    ${ks.length?'':'<div class="banner info" style="margin-bottom:10px">Chưa có mốc xét nghiệm. Chọn thời điểm lấy mẫu rồi bấm “Thêm mốc xét nghiệm”.</div>'}
    <div class="scroll"><table class="lab">${head}${rows}</table></div>`;
@@ -1391,7 +1487,10 @@ document.addEventListener('click',e=>{
   if(act==='opennk'){S.obsView='form';S.sel=t.dataset.k;renderTab();return}
   if(act==='login')return loginModal();
   if(act==='quick')return quickModal();
-  if(act==='conn')return connModal();
+  if(act==='conn'){if(S.mode==='fb'){toast('Đang dùng dữ liệu chung của khoa (Firebase Kanban)');return}return connModal()}
+  if(act==='fblogin')return fbLogin();
+  if(act==='fbloginopen')return fbLoginModal();
+  if(act==='fblogout'){lsSet('hpt-fbuser',null);S.fbUser=null;S.me='';renderAll();toast('Đã đăng xuất – đang ở chế độ xem');return}
   if(act==='mypin'){const u=curUser();if(u)staffModal(u);return}
   if(act==='logout'){S.login=null;lsSet('hpt-login',null);renderAll();toast('Đã đăng xuất');return}
   const WRITE=['report','reportadd','new','demo','import','extra','copyprev','calcra','clearobs','addlab','dellab','suggest','planadd','planrem','planpre','plancfg'];
@@ -1444,8 +1543,10 @@ document.addEventListener('click',e=>{
   if(act==='resetth'){S.cfg.th=JSON.parse(JSON.stringify(TH_DEF));store.saveCfg(S.cfg);renderTab();toast('Đã khôi phục ngưỡng mặc định');return}
 });
 function setInfo(f,v){S.info={...S.info,[f]:v};const pid=S.cur;S.patients[pid]=S.info;later('info'+pid,()=>store.saveInfo(pid,S.info))}
+document.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target&&e.target.id==='fb_name'){e.preventDefault();fbLogin()}});
 document.addEventListener('input',e=>{
-  const t=e.target;if(S.ro&&!t.closest('.rep-opts')&&t.id!=='meInp')return;
+  const t=e.target;if(S.ro&&!t.closest('.rep-opts')&&t.id!=='meInp'&&t.id!=='psearch'&&!t.closest('.modal'))return;
+  if(t.id==='psearch'){S.q=t.value;renderList();return}
   if(t.id==='meInp'){S.me=t.value.trim();lsSet('hpt-me',S.me);return}
   if(t.dataset.f&&S.sel){updateObsField(S.sel,t.dataset.f,t.value.trim()?t.value:'');return}
   if(t.dataset.i){setInfo(t.dataset.i,t.value);if(t.dataset.i==='hoTen')renderList();return}
@@ -1475,9 +1576,13 @@ document.addEventListener('change',e=>{
 let _dl=null;const capDownloads={then(r,j){if(!_dl)_dl=(window.claude&&window.claude.use)?Promise.resolve(window.claude.use('downloads')).catch(()=>null):Promise.resolve(null);return _dl.then(r,j)}};
 function start(st){
   store=st;S.mode=st.kind;
-  setSync(st.kind==='local'?'local':'ok',st.kind==='db'?'Đồng bộ cho cả kíp':st.kind==='sheet'?(st.ro?'Chỉ xem (dữ liệu chung)':'Dùng chung (Google Sheet)'):'Lưu trên máy này – bấm để kết nối');
+  setSync(st.kind==='local'?'local':'ok',st.kind==='db'?'Đồng bộ cho cả kíp':st.kind==='fb'?'Dữ liệu chung của khoa':st.kind==='sheet'?(st.ro?'Chỉ xem (dữ liệu chung)':'Dùng chung (Google Sheet)'):'Lưu trên máy này – bấm để kết nối');
   st.watchCfg(c=>{if(st.kind!=='db'&&!(c&&Array.isArray(c.staff)&&c.staff.length)){c={...(c||{}),staff:DEFAULT_STAFF};st.saveCfg({...S.cfg,...c})}
     if(c&&!pendingKeys.has('cfg')){S.cfg={...JSON.parse(JSON.stringify(CFG_DEF)),...c,th:{...TH_DEF,...(c.th||{})}};renderWho();if(S.tab==='caidat'&&!document.activeElement.closest('#main'))renderMain()}});
+  startData();
+}
+let dataStarted=false;
+function startData(){if(dataStarted)return;dataStarted=true;const st=store;
   let first=true;
   st.listPatients(m=>{
     for(const id of Object.keys(m)){if(id===S.cur&&pendingKeys.has('info'+id))m[id]=S.info}
@@ -1499,6 +1604,8 @@ renderList();renderMain();
     start(makeDbStore(db));if(S.shareRo)setSync('local','Chỉ xem');
   }else{
     const h=location.hash||'';if(h.startsWith('#kn=')){try{const v=b64d(h.slice(4));if(v.u&&v.k){lsSet('hpt-sync',{u:v.u,k:v.k});lsSet('hpt-sheet-cache',null)}}catch(e){}try{history.replaceState(null,'',location.pathname+location.search)}catch(e){}}
+    let fbdb=null;try{fbdb=await fbConnect()}catch(e){console.warn('Firebase',e)}
+    if(fbdb){S.mode='fb';start(makeFbStore(fbdb));renderWho();return}
     const sy=syncConf();
     if(sy){const ss=makeSheetStore(sy.u,sy.k);try{await ss.init();if(ss.ro)S.shareRo=true;start(ss)}catch(e){const c=lsGet('hpt-sheet-cache',null);
       if(c&&c.docs){start(ss);setSync('err','Mất kết nối – đang xem bản lưu gần nhất')}else{start(makeLocalStore());setSync('err',(e&&e.message)||'Không kết nối được Google Sheet')}}}
