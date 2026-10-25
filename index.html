@@ -121,6 +121,7 @@ h1,h2,h3{text-wrap:balance;margin:0}
 .phg{display:grid;grid-template-columns:repeat(12,26px);gap:3px}.ph{height:24px;border:1px solid var(--line);border-radius:5px;background:transparent;font-size:11px;color:var(--muted);padding:0;font-family:inherit}.ph.on{background:var(--accent);border-color:var(--accent);color:var(--on-accent);font-weight:600}.ph:disabled{cursor:default}
 .hml{display:flex;flex-wrap:wrap;gap:4px 10px;font-size:12px}.hm{white-space:nowrap}
 .planbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between;background:var(--panel-2);border:1px solid var(--line);border-radius:10px;padding:8px 12px;margin-bottom:10px;font-size:13px}
+.rbar{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:0 0 8px}.rlab{display:flex;align-items:center;gap:4px;font-size:12px;color:var(--muted)}.rlab input{height:32px;width:auto;padding:2px 6px;font-size:13px}
 .tl-tools{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px;align-items:center}
 .tl-daysel{display:flex;align-items:center;gap:6px;margin-left:auto;font-size:12px;color:var(--muted);font-weight:600}.tl-daysel select{height:32px;padding:2px 8px;font-size:13px;width:auto}
 .tl{border:1px solid var(--line);border-radius:var(--r);max-height:640px;overflow:auto;background:var(--panel)}
@@ -291,7 +292,7 @@ fieldset{border:0;margin:0;padding:0;min-width:0}
 <header class="top">
   <div class="brand">
     <svg width="34" height="34" viewBox="0 0 34 34" aria-hidden="true"><rect width="34" height="34" rx="8" fill="var(--accent)"/><path d="M4 18h6l3-7 4 13 3-9 2 3h8" fill="none" stroke="var(--on-accent)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-    <div><h1>Theo dõi Hậu phẫu Tim</h1><small>Khoa Gây mê Hồi sức · BVĐK Trung tâm tỉnh Gia Lai · <b>bản 25/10-M</b></small></div>
+    <div><h1>Theo dõi Hậu phẫu Tim</h1><small>Khoa Gây mê Hồi sức · BVĐK Trung tâm tỉnh Gia Lai · <b>bản 25/10-N</b></small></div>
   </div>
   <div class="sp"></div>
   <button class="sync" id="sync" data-act="conn" title="Kết nối dữ liệu chung"><i></i><span>Đang kết nối…</span></button>
@@ -411,7 +412,7 @@ function renderWho(){const el=$('#who');if(!el)return;const r=role(),u=curUser()
   else if(!u&&S.isOwner)el.innerHTML=`<span class="who"><b>${esc(S.me||'Chủ sở hữu')}</b><span class="rb admin">Quản trị</span></span>`;
   else if(u)el.innerHTML=`<span class="who"><b>${esc(u.ten)}</b><span class="rb ${u.role}">${ROLES[u.role]}</span><button class="btn sm ghost" data-act="mypin">Đổi PIN</button><button class="btn sm ghost" data-act="logout">Đăng xuất</button></span>`;
   else el.innerHTML=`<span class="who"><span class="rb xem">Đang chỉ xem</span><button class="btn sm pri" data-act="login">Đăng nhập ca</button></span>`;
-  const bn=$('#btnNew');if(bn)bn.hidden=S.ro;const bi=$('#btnImp');if(bi)bi.hidden=!canAdmin();const bq=$('#btnQuick');if(bq)bq.hidden=S.ro;}
+  const bn=$('#btnNew');if(bn)bn.hidden=!canAdmin();const bi=$('#btnImp');if(bi)bi.hidden=!canAdmin();const bq=$('#btnQuick');if(bq)bq.hidden=!canAdmin();}
 function needLogin(){if(S.shareRo){toast('Tài khoản chỉ có quyền xem trên link chia sẻ');return}if(!curUser())loginModal();else toast('Tài khoản của anh/chị chỉ có quyền xem')}
 function loginModal(){const st=staffList().slice().sort((a,b)=>a.ten.localeCompare(b.ten,'vi'));
   modal(`<h3>Đăng nhập ca trực</h3><label class="fld"><span>Người dùng</span><select class="inp" id="lg_u">${st.map(x=>`<option value="${x.id}">${esc(x.ten)}${x.chucDanh?' – '+esc(x.chucDanh):''} (${ROLES[x.role]})</option>`).join('')}</select></label>
@@ -836,7 +837,7 @@ function renderMain(){
   if(S.tab==='caidat'&&!S.cur){m.innerHTML=`<div class="card">${tabsHtml()}<div class="tab-body" id="tabBody"></div></div>`;renderTab();return}
   if(!S.cur||!S.info){
     m.innerHTML=`<div class="card empty"><h2>Chưa chọn bệnh nhân</h2><p>Tạo hồ sơ bệnh nhân mới khi bệnh nhân về hồi sức. Ứng dụng tự lập lịch theo dõi mỗi giờ trong 24 giờ đầu, sau đó mỗi 3 giờ, và xuất báo cáo Word theo mẫu của khoa.</p>
-    <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center" ${S.ro?'hidden':''}><button class="btn pri" data-act="new">+ Bệnh nhân mới</button><button class="btn" data-act="demo">Tạo hồ sơ mẫu để dùng thử</button><button class="btn" data-act="import">Khôi phục từ file sao lưu</button><button class="btn ghost" data-act="settings">Cài đặt ngưỡng cảnh báo</button></div></div>`;return}
+    <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center" ${!canAdmin()?'hidden':''}><button class="btn pri" data-act="new">+ Bệnh nhân mới</button><button class="btn" data-act="demo">Tạo hồ sơ mẫu để dùng thử</button><button class="btn" data-act="import">Khôi phục từ file sao lưu</button><button class="btn ghost" data-act="settings">Cài đặt ngưỡng cảnh báo</button></div></div>`;return}
   m.innerHTML=`${S.mode==='local'?'<div class="banner warn">Đang lưu riêng trên máy này, người khác không thấy. Bấm nút <b>Lưu trên máy này</b> ở góc trên để kết nối dữ liệu chung của khoa.</div>':''}
    ${S.shareRo?'<div class="banner info">Link chỉ xem: anh/chị xem được toàn bộ hồ sơ và xuất báo cáo, không sửa được số liệu.</div>':S.ro?`<div class="banner warn">${curUser()?'Tài khoản của anh/chị chỉ có quyền xem.':S.mode==='fb'?'Đang xem (không cần đăng nhập). Chọn bệnh nhân ở cột trái hoặc gõ tìm. Người được phân công nhập liệu bấm <b>Đăng nhập ca</b>.':'Đang ở chế độ chỉ xem. Bấm <b>Đăng nhập ca</b> để nhập liệu.'}</div>`:''}
    <section class="card">${headHtml()}${tabsHtml()}<div class="tab-body" id="tabBody"></div></section>`;
@@ -878,7 +879,7 @@ function renderTab(){
   else if(S.tab==='baocao'){b.innerHTML=reportTabHtml();setTimeout(fitPaper,0)}
   else if(S.tab==='chidinh')b.innerHTML=orderTabHtml();
   else b.innerHTML=settingsHtml();
-  if(S.ro)b.querySelectorAll('input,textarea,select,.chip').forEach(e=>{if(!e.closest('.rep-opts'))e.disabled=true});
+  if(S.ro)b.querySelectorAll('input,textarea,select,.chip').forEach(e=>{if(!e.closest('.rep-opts,.rbar,.tl-tools'))e.disabled=true});
   if(S.tab==='caidat'&&!canAdmin()){b.querySelectorAll('input,select,button').forEach(e=>e.disabled=true);b.insertAdjacentHTML('afterbegin','<div class="banner warn" style="margin-bottom:10px">Chỉ người có quyền Quản trị được sửa cài đặt.</div>')}
   renderWho();
   if(S.tab==='theodoi'){const r=b.querySelector('.tl-row.on');if(r)r.scrollIntoView({block:'nearest'})}
@@ -911,9 +912,15 @@ function obsTabHtml(){
 }
 function obsTableHtml(filled){
   if(!filled.length)return '<div class="banner info">Chưa có mốc nào có số liệu.</div>';
+  const d1=filled[0].slice(0,10),d2=filled[filled.length-1].slice(0,10);const fr=S.tvFrom||'',to=S.tvTo||'';
+  const days=[...new Set(filled.map(k=>k.slice(0,10)))];
+  const rbar=`<div class="rbar"><span class="hint"><b>Thời gian:</b></span><button class="btn sm ${!fr&&!to?'pri':''}" data-act="tvall">Tất cả</button>${days.map(d=>`<button class="btn sm ${fr===d&&to===d?'pri':''}" data-act="tvday" data-d="${d}">${d.slice(8,10)}/${d.slice(5,7)}</button>`).join('')}
+    <label class="rlab">Từ ngày <input type="date" class="inp" id="tvFrom" value="${fr}" min="${d1}" max="${d2}"></label><label class="rlab">đến ngày <input type="date" class="inp" id="tvTo" value="${to}" min="${d1}" max="${d2}"></label></div>`;
+  filled=filled.filter(k=>{const d=k.slice(0,10);return (!fr||d>=fr)&&(!to||d<=to)});
+  if(!filled.length)return rbar+'<div class="banner info">Không có mốc nào trong khoảng thời gian đã chọn.</div>';
   const ks=filled.slice().reverse();const p=S.info;
   const cell=lines=>lines.map(l=>l.lab!==undefined?`<div>${esc(l.lab)}<span class="${l.red?'redv':''}">${esc(l.t)}</span></div>`:`<div>${esc(l.t)}</div>`).join('');
-  let h=`<p class="hint" style="margin:0 0 8px">Mốc mới nhất bên trái. Bấm vào giờ ở tiêu đề cột để mở phiếu nhập của mốc đó.</p><div class="scroll"><table class="lab dtab"><tr><th>Thông số</th>${ks.map(k=>`<th><button class="x2" data-act="opennk" data-k="${k}">N${dayN(k,p)}<br>${hLabel(k)}</button>${S.obs[k].by?`<br><small>${esc(S.obs[k].by)}</small>`:''}</th>`).join('')}</tr>`;
+  let h=rbar+`<p class="hint" style="margin:0 0 8px">${ks.length} mốc${fr||to?` (${fr?dmy(fr):'đầu'} → ${to?dmy(to):'nay'})`:''}. Mốc mới nhất bên trái. Bấm vào giờ ở tiêu đề cột để mở phiếu nhập của mốc đó.</p><div class="scroll"><table class="lab dtab"><tr><th>Thông số</th>${ks.map(k=>`<th><button class="x2" data-act="opennk" data-k="${k}">N${dayN(k,p)}<br>${hLabel(k)}</button>${S.obs[k].by?`<br><small>${esc(S.obs[k].by)}</small>`:''}</th>`).join('')}</tr>`;
   allRows().forEach(([lab,fn])=>{h+=`<tr><td>${lab}</td>${ks.map(k=>`<td class="dc">${cell(cellLines(fn,k))}</td>`).join('')}</tr>`});
   return h+'</table></div>';
 }
@@ -1588,10 +1595,12 @@ document.addEventListener('click',e=>{
   const act=t.dataset.act;if(!act)return;
   if(act==='vform'||act==='vtable'){S.obsView=act==='vtable'?'table':'form';renderTab();return}
   if(act==='opennk'){S.obsView='form';S.sel=t.dataset.k;renderTab();return}
+  if(act==='tvall'){S.tvFrom=S.tvTo='';renderTab();return}
+  if(act==='tvday'){S.tvFrom=S.tvTo=t.dataset.d;renderTab();return}
   if(act==='clrsearch'){const i=$('#psearch');if(i)i.value='';S.q='';renderList();return}
   if(act==='login')return loginModal();
   if(S.ro&&['quick','suggest','planadd','planrem','planpre','plancfg','new','demo'].includes(act))return;
-  if(!canAdmin()&&['import','backup','delpt','settings'].includes(act))return;
+  if(!canAdmin()&&['import','backup','delpt','settings','new','quick','demo'].includes(act))return;
   if(act==='saveinfo')return saveInfoNow();
   if(act==='editplan'){S.tab='thongtin';renderMain();setTimeout(()=>{const b=$('#planBox');if(b)b.scrollIntoView({block:'start',behavior:'smooth'})},50);return}
   if(act==='planall'){if(!canAdmin())return;const C=getPlan(S.cfg);const ids=Object.keys(S.patients).filter(id=>{const i=S.patients[id]||{};return !i.trangThai||i.trangThai==='dang'});
@@ -1707,6 +1716,7 @@ document.addEventListener('input',e=>{
 document.addEventListener('change',e=>{
   const t=e.target;
   if(t.classList.contains('mau')&&t.dataset.to){const v=t.value;t.value='';const f=t.dataset.to,ta=$('#o_'+f);if(!v||!ta||ta.disabled||S.ro||!S.sel)return;const sep=f==='khac'?'; ':'. ';const cur=ta.value.replace(/[\s.;,]+$/,'');const nv=cur?cur+sep+v:v;ta.value=nv;updateObsField(S.sel,f,nv);return}
+  if(t.id==='tvFrom'||t.id==='tvTo'){S[t.id]=t.value;if(S.tvFrom&&S.tvTo&&S.tvFrom>S.tvTo){if(t.id==='tvFrom')S.tvTo=S.tvFrom;else S.tvFrom=S.tvTo}renderTab();return}
   if(t.id==='tlShow'){S.tlShow=t.value;renderTab();return}
   if(t.id==='tlDay'){S.tlDay=t.value===''?null:+t.value;renderTab();return}
   if(t.dataset.staff){if(!canAdmin())return;const id=t.dataset.staff,v=t.value;const st=staffList();
