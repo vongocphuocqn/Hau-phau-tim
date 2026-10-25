@@ -117,7 +117,8 @@ h1,h2,h3{text-wrap:balance;margin:0}
 /* observation */
 .obs{display:grid;grid-template-columns:minmax(260px,340px) minmax(0,1fr);gap:14px}
 @media (max-width:1000px){.obs{grid-template-columns:minmax(0,1fr)}}
-.tl-tools{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px}
+.tl-tools{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px;align-items:center}
+.tl-daysel{display:flex;align-items:center;gap:6px;margin-left:auto;font-size:12px;color:var(--muted);font-weight:600}.tl-daysel select{height:32px;padding:2px 8px;font-size:13px;width:auto}
 .tl{border:1px solid var(--line);border-radius:var(--r);max-height:640px;overflow:auto;background:var(--panel)}
 @media (max-width:1000px){.tl{max-height:340px}}
 .tl-day{position:sticky;top:0;background:var(--panel-2);padding:6px 10px;font-size:12px;font-weight:600;color:var(--muted);border-bottom:1px solid var(--line);display:flex;justify-content:space-between;z-index:1}
@@ -136,6 +137,8 @@ h1,h2,h3{text-wrap:balance;margin:0}
 .badge.warn{background:var(--warn-soft);color:var(--warn)}
 .badge.late{background:var(--warn-soft);color:var(--warn)}
 .badge.due{background:var(--accent-soft);color:var(--accent)}
+.badge.ok{background:var(--ok-soft);color:var(--ok)}
+.bdg{display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end}
 .badge.extra{background:var(--panel-2);color:var(--muted);border:1px solid var(--line)}
 
 .form{border:1px solid var(--line);border-radius:var(--r);background:var(--panel)}
@@ -161,6 +164,8 @@ h1,h2,h3{text-wrap:balance;margin:0}
 .fld.grow input,.fld.grow textarea{width:100%}
 textarea{resize:vertical;min-height:38px}
 .chips{display:flex;flex-wrap:wrap;gap:5px}
+.khacw .khac{height:30px;width:220px;max-width:100%;padding:2px 10px;font-size:13px;border-radius:99px}
+.fsec select.mau{max-width:100%;width:100%;height:34px;font-size:13px;color:var(--accent);font-weight:600}
 .chip{border:1px solid var(--line);background:transparent;border-radius:99px;padding:4px 11px;font-size:13px}
 .chip.on{background:var(--accent);color:var(--on-accent);border-color:var(--accent)}
 .calc{display:inline-flex;align-items:center;gap:6px;padding:6px 10px;border-radius:6px;background:var(--accent-soft);font-weight:600}
@@ -282,7 +287,7 @@ fieldset{border:0;margin:0;padding:0;min-width:0}
 <header class="top">
   <div class="brand">
     <svg width="34" height="34" viewBox="0 0 34 34" aria-hidden="true"><rect width="34" height="34" rx="8" fill="var(--accent)"/><path d="M4 18h6l3-7 4 13 3-9 2 3h8" fill="none" stroke="var(--on-accent)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-    <div><h1>Theo dõi Hậu phẫu Tim</h1><small>Khoa Gây mê Hồi sức · BVĐK Trung tâm tỉnh Gia Lai · <b>bản 25/10-C</b></small></div>
+    <div><h1>Theo dõi Hậu phẫu Tim</h1><small>Khoa Gây mê Hồi sức · BVĐK Trung tâm tỉnh Gia Lai · <b>bản 25/10-I</b></small></div>
   </div>
   <div class="sp"></div>
   <button class="sync" id="sync" data-act="conn" title="Kết nối dữ liệu chung"><i></i><span>Đang kết nối…</span></button>
@@ -308,10 +313,20 @@ fieldset{border:0;margin:0;padding:0;min-width:0}
 
 <script>
 /* ============ HẰNG SỐ ============ */
-const OBS_FIELDS=['ythuc','lamsang','hohap','nt','spo2','fio2','m','hatt','hatr','cvp','vanmach','t','nuoctieu','danluu','tinhchat','vao','ra','cannang','dh'];
+const MAU_DEF=['Tỉnh, tiếp xúc tốt','An thần, thở máy theo chỉ định','Da niêm hồng, chi ấm','Thở đều, không co kéo','Phổi thông khí đều hai bên','Mạch, huyết áp ổn định','Không sốt','Không đau ngực','Đau vết mổ ít','Vết mổ khô, không thấm dịch','Dẫn lưu ra ít, dịch hồng loãng','Dẫn lưu không ra thêm','Tiểu tốt, nước tiểu vàng trong','Bụng mềm, không chướng','Đã rút nội khí quản, thở oxy kính','Ăn uống được qua đường miệng','Vận động nhẹ tại giường','Đã báo bác sĩ trực'].join('\n');
+function mauCau(){return String(S.cfg&&S.cfg.mauCau!=null&&String(S.cfg.mauCau).trim()?S.cfg.mauCau:MAU_DEF).split('\n').map(x=>x.trim()).filter(Boolean)}
+const OBS_FIELDS=['ythuc','lamsang','hohap','nt','spo2','fio2','m','hatt','hatr','cvp','vanmach','t','nuoctieu','danluu','tinhchat','vao','ra','cannang','dh','khac'];
 const YTHUC=['An thần, chưa tỉnh','Tỉnh, tiếp xúc tốt','Lơ mơ','Kích thích, vật vã'];
 const HOHAP=['Thở máy','Oxy mask','Oxy kính','HFNC','Thở khí trời'];
 const TINHCHAT=['Máu đỏ tươi','Máu/dịch đỏ','Dịch hồng','Dịch vàng trong'];
+const SUG={
+ ythuc:['Tỉnh, tiếp xúc chậm','Tỉnh, kích thích nhẹ','Ngủ, gọi tỉnh','Mê, GCS ≤ 8','An thần sâu (RASS −4)','An thần nhẹ (RASS −1)','Co giật','Mê sảng (delirium)'],
+ hohap:['Thở máy SIMV','Thở máy PSV','Thở máy CPAP','Thở BiPAP','Oxy 2 l/ph','Oxy 3 l/ph','Oxy 5 l/ph','HFNC 40 l/ph FiO₂ 40%','Thở oxy qua ống chữ T','Vừa rút NKQ'],
+ tinhchat:['Dịch hồng loãng','Dịch thanh dịch','Máu cục','Không ra dịch','Dịch đục','Có khí theo dẫn lưu'],
+ vanmach:['Không dùng vận mạch','Noradrenalin 0,05 µg/kg/ph','Noradrenalin 0,1 µg/kg/ph','Noradrenalin 0,2 µg/kg/ph','Adrenalin 0,05 µg/kg/ph','Adrenalin 0,1 µg/kg/ph','Dobutamin 3 µg/kg/ph','Dobutamin 5 µg/kg/ph','Dopamin 5 µg/kg/ph','Milrinon 0,375 µg/kg/ph','Levosimendan 0,1 µg/kg/ph','Nitroglycerin 0,5 µg/kg/ph','Đang giảm liều vận mạch','Đã ngưng vận mạch'],
+ khac:['Kali truyền 10 mmol/giờ','Insulin truyền 2 UI/giờ','Lactat máu','Điểm đau VAS 3','Máy tạo nhịp tạm thời 80 l/ph','Nhịp xoang','Rung nhĩ','Ngoại tâm thu thất','Đã truyền máu','Đã truyền huyết tương tươi','Furosemid tiêm tĩnh mạch','Đã chụp X-quang ngực','Đã làm khí máu','Đã báo bác sĩ trực']};
+function sugList(f,exclude=[]){const used=Object.values(S.obs||{}).map(o=>o&&o[f]).filter(v=>has(v)).flatMap(v=>String(v).split(/\s*;\s*/)).map(x=>x.trim()).filter(x=>x&&x.length<80);const out=[];[...(SUG[f]||[]),...used].forEach(x=>{if(!exclude.includes(x)&&!out.includes(x))out.push(x)});return out}
+function dlHtml(id,list){return `<datalist id="${id}">${list.map(x=>`<option value="${esc(x)}"></option>`).join('')}</datalist>`}
 const ANALYTES=[
   {k:'bc',l:'BC (G/L)',lo:4,hi:10},{k:'neut',l:'Neut (%)',lo:40,hi:75},{k:'rbc',l:'RBC (T/L)',lo:3.8,hi:5.5},
   {k:'hb',l:'Hb (g/L)',lo:120,hi:170},{k:'hct',l:'Hct (%)',lo:36,hi:50},{k:'tc',l:'TC (G/L)',lo:150,hi:400},
@@ -730,6 +745,7 @@ function schedule(info,obs){
     const cap=s.getTime()+21*864e5;if(end>cap)end=new Date(cap);
     for(let h=0;;h++){const t=new Date(s.getTime()+h*36e5);if(t>end)break;if(h===0||slotOK(t,h,info))set.add(toKey(t))}
   }
+  Object.values(obs||{}).forEach(o=>{if(o&&o.slot&&o.slot!==o.k&&hasData(o)&&!hasData((obs||{})[o.slot]))set.delete(o.slot)});
   return [...set].sort();
 }
 function isScheduled(k,info){const s=startHour(info);if(!s)return false;const t=fromKey(k);if(t.getMinutes())return false;const h=Math.round((t-s)/36e5);if(h<0)return false;return h===0||slotOK(t,h,info)}
@@ -820,7 +836,7 @@ function headHtml(){
     <div class="kpis">
       <div class="kpi"><small>Về hồi sức</small><b class="num">${p.veHoiSuc?hLabel(p.veHoiSuc):'—'}</b></div>
       <div class="kpi ${late?'warn':''}"><small>${due?'Đến giờ ghi':'Mốc kế tiếp'}</small><b class="num">${due?hhmm(due):next?hLabel(next):'—'}</b></div>
-      <div class="kpi ${late?'warn':''}"><small>Mốc chưa ghi</small><b class="num">${late}</b></div>
+      <div class="kpi ${late?'warn':''}"><small>Mốc chưa nhập</small><b class="num">${late}</b></div>
       <div class="kpi"><small>Bilan cộng dồn</small><b class="num">${filled.length?signed(cum)+' ml':'—'}</b></div>
       <div class="kpi"><small>Nước tiểu cộng dồn</small><b class="num">${filled.length?fmtN(cu)+' ml':'—'}</b></div>
       ${lf.m.length?`<div class="kpi ${lf.m[0].l}"><small>Cảnh báo mốc ${hhmm(last)}</small><b>${lf.m.length} chỉ số</b></div>`:''}
@@ -881,46 +897,54 @@ function obsTableHtml(filled){
 function timelineHtml(keys){
   const p=S.info;const groups={};keys.forEach(k=>{const n=dayN(k,p);(groups[n]=groups[n]||[]).push(k)});
   const nums=Object.keys(groups).map(Number).sort((a,b)=>b-a);
-  let html=`${S.ro?'':'<div class="tl-tools"><button class="btn sm pri" data-act="now">Ghi mốc hiện tại</button><button class="btn sm" data-act="extra">+ Mốc bổ sung</button></div>'}<div class="tl" id="tl">`;
-  for(const n of nums){
+  if(S.tlDay!=null&&!nums.includes(S.tlDay))S.tlDay=null;
+  const dsel=`<label class="tl-daysel"><span>Ngày</span><select class="inp" id="tlDay"><option value="">Tất cả các ngày</option>${nums.map(n=>{const d=fromKey(groups[n][0]);return `<option value="${n}" ${S.tlDay===n?'selected':''}>N${n} · ${pad(d.getDate())}/${pad(d.getMonth()+1)}/${d.getFullYear()}</option>`}).join('')}</select></label>`;
+  const shw=S.tlShow||'';const ssel=`<label class="tl-daysel"><span>Hiển thị</span><select class="inp" id="tlShow"><option value="">Tất cả mốc</option><option value="chua" ${shw==='chua'?'selected':''}>Chỉ mốc chưa nhập</option><option value="da" ${shw==='da'?'selected':''}>Chỉ mốc đã nhập</option></select></label>`;
+  let html=`<div class="tl-tools">${S.ro?'':'<button class="btn sm pri" data-act="now">Ghi mốc hiện tại</button><button class="btn sm" data-act="extra">+ Mốc bổ sung</button>'}${dsel}${ssel}</div><div class="tl" id="tl">`;
+  for(const n of nums){if(S.tlDay!=null&&n!==S.tlDay)continue;
     const ks=groups[n].slice().reverse();const d=fromKey(ks[0]);
     const done=ks.filter(k=>hasData(S.obs[k])).length;
-    html+=`<div class="tl-day" data-n="${n}"><span>N${n} · ${pad(d.getDate())}/${pad(d.getMonth()+1)}${n===0?' · ngày phẫu thuật':''}</span><span class="dsum">${done}/${ks.length} mốc${(()=>{const F=dayFluid(n);return F.n?` · bilan ${signed(F.bil)} ml`:''})()}</span></div>`;
-    html+=ks.map(k=>rowHtml(k)).join('');
+    html+=`<div class="tl-day" data-n="${n}"><span>N${n} · ${pad(d.getDate())}/${pad(d.getMonth()+1)}${n===0?' · ngày phẫu thuật':''}</span><span class="dsum">${dsumTxt(done,ks)}${(()=>{const F=dayFluid(n);return F.n?` · bilan ${signed(F.bil)} ml`:''})()}</span></div>`;
+    const vis=ks.filter(k=>!shw||(shw==='da'?hasData(S.obs[k]):!hasData(S.obs[k])&&status(k,S.obs[k])!=='up'));
+    html+=vis.length?vis.map(k=>rowHtml(k)).join(''):`<div class="hint" style="padding:8px 12px">${shw==='chua'?'Ngày này đã nhập đủ các mốc.':'Chưa có mốc nào đã nhập.'}</div>`;
   }
   return html+'</div>';
 }
+function dsumTxt(done,ks){const miss=ks.filter(k=>!hasData(S.obs[k])&&status(k,S.obs[k])!=='up').length;return `đã nhập ${done}/${ks.length}`+(miss?` · chưa nhập ${miss}`:'')}
 function rowHtml(k){
   const o=S.obs[k],st=status(k,o);const fl=flagsOf(o,k);
   const v=hasData(o)?[o.m&&'M '+o.m,(o.hatt||o.hatr)&&'HA '+(o.hatt||'?')+'/'+(o.hatr||'?'),o.spo2&&'SpO₂ '+o.spo2,o.nuoctieu&&'Tiểu '+o.nuoctieu,o.danluu&&'DL '+o.danluu].filter(Boolean).join(' · ')
-    :({up:'Sắp tới',due:'Đến giờ ghi',late:'Chưa ghi'}[st]);
+    :({up:'Sắp tới',due:'Đến giờ ghi',late:'Chưa nhập'}[st]);
   const crit=fl.m.filter(x=>x.l==='crit').length,warn=fl.m.length-crit;
-  const extra=!isScheduled(k,S.info)?'<span class="badge extra">bổ sung</span>':'';
-  const badge=crit?`<span class="badge crit">${crit} nặng</span>`:warn?`<span class="badge warn">${warn} lưu ý</span>`:st==='late'?'<span class="badge late">trễ</span>':st==='due'?'<span class="badge due">ghi ngay</span>':extra;
+  const extra=o&&o.slot&&o.slot!==k?'<span class="badge extra">đổi giờ</span>':!isScheduled(k,S.info)?'<span class="badge extra">bổ sung</span>':'';
+  const badge='<span class="bdg">'+(st==='done'?'<span class="badge ok">✓ Đã nhập</span>':st==='late'?'<span class="badge late">Chưa nhập</span>':st==='due'?'<span class="badge due">Nhập ngay</span>':'')+(crit?`<span class="badge crit">${crit} nặng</span>`:warn?`<span class="badge warn">${warn} lưu ý</span>`:'')+extra+'</span>';
   return `<button class="tl-row ${k===S.sel?'on':''}" data-k="${k}"><span class="dot ${st}"></span><span class="t num">${hhmm(k)}</span><span class="v">${esc(v)}</span>${badge}</button>`;
 }
 function nf(f,label,unit,o,fl,cls=''){return `<label class="fld"><span>${label}</span><input class="n ${cls} ${fl[f]||''}" inputmode="decimal" data-f="${f}" id="o_${f}" value="${esc(o[f]??'')}" autocomplete="off"><small class="u">${unit}</small></label>`}
-function chips(f,opts,o){return `<div class="chips" data-chipf="${f}">${opts.map(x=>`<button type="button" class="chip ${o[f]===x?'on':''}" data-chip="${f}" data-v="${esc(x)}">${esc(x)}</button>`).join('')}</div>`}
+function chipParts(v,opts){if(!has(v))return [];v=String(v);if(opts.includes(v))return [v];return v.split(/\s*;\s*/).map(x=>x.trim()).filter(Boolean)}
+function chipCompose(box){const sel=[...box.querySelectorAll('.chip.on[data-chip]')].map(c=>c.dataset.v);const w=box.querySelector('.khacw');const tx=w&&!w.hidden?w.querySelector('input').value.trim():'';return [...sel,...(tx?[tx]:[])].join('; ')}
+function chips(f,opts,o){const parts=chipParts(o[f],opts);const othT=parts.filter(x=>!opts.includes(x)).join('; ');const oth=!!othT;const v=othT;return `<div class="chips" data-chipf="${f}">${opts.map(x=>`<button type="button" class="chip ${parts.includes(x)?'on':''}" data-chip="${f}" data-v="${esc(x)}">${esc(x)}</button>`).join('')}<button type="button" class="chip ${oth?'on':''}" data-chipk="${f}">Khác…</button><span class="khacw" ${oth?'':'hidden'}><input class="inp khac" data-khacf="${f}" id="o_${f}_khac" list="dl_${f}" value="${oth?esc(v):''}" placeholder="Chọn gợi ý hoặc gõ…" autocomplete="off">${dlHtml('dl_'+f,sugList(f,opts))}</span></div>`}
 function formHtml(k){
   if(!k)return '';
   const o=S.obs[k]||{},fl=flagsOf(o,k);const p=S.info;const n=dayN(k,p);
   const a=arrivalDate(p);const hrs=a?Math.round((fromKey(k)-a)/36e5):null;
   const b=bilan(o);
   return `<div class="form" data-key="${k}">
-   <div class="form-h"><div><h3>N${n} · ${hLabel(k)}</h3><div class="sub">${hrs!=null?`Giờ thứ ${Math.max(hrs,0)} sau về hồi sức`:''}${o.by?' · Người ghi: '+esc(o.by):''}${o.suaBoi?' · Sửa bởi: '+esc(o.suaBoi):''}</div></div><span class="sp"></span>
-     <button class="btn sm" data-act="copyprev">Lấy mô tả mốc trước</button><button class="btn sm" data-act="nextk">Mốc kế →</button></div>
+   <div class="form-h"><div><h3>N${n} · ${hLabel(k)}</h3><div class="sub">${hrs!=null?`Giờ thứ ${Math.max(hrs,0)} sau về hồi sức`:''}${o.by?' · Người ghi: '+esc(o.by):''}${o.suaBoi?' · Sửa bởi: '+esc(o.suaBoi):''}${o.slot&&o.slot!==k?' · Đổi từ mốc '+hLabel(o.slot):''}</div></div><span class="sp"></span>
+     ${!S.ro&&(!hasData(o)||canEditRec(o.byId))?'<button class="btn sm" data-act="movek">🕑 Đổi ngày/giờ mốc</button>':''}<button class="btn sm" data-act="copyprev">Lấy mô tả mốc trước</button><button class="btn sm" data-act="nextk">Mốc kế →</button></div>
    <div class="flags" id="flags">${flagsHtml(fl)}</div>
    ${hasData(o)&&!canEditRec(o.byId)?`<div class="banner warn" style="margin:8px 12px">Mốc này do <b>${esc(o.by||'người khác')}</b> ghi. Chỉ người ghi hoặc Quản trị được sửa.</div>`:''}
    <fieldset ${hasData(o)&&!canEditRec(o.byId)?'disabled':''}>
-   <div class="fsec"><div class="lbl">Ý thức – Lâm sàng</div><div style="display:grid;gap:8px">${chips('ythuc',YTHUC,o)}<label class="fld grow"><span>Diễn biến lâm sàng / ghi chú</span><textarea data-f="lamsang" id="o_lamsang" rows="2">${esc(o.lamsang||'')}</textarea></label></div></div>
+   <div class="fsec"><div class="lbl">Ý thức – Lâm sàng</div><div style="display:grid;gap:8px">${chips('ythuc',YTHUC,o)}<label class="fld grow"><span>Diễn biến lâm sàng / ghi chú</span><textarea data-f="lamsang" id="o_lamsang" rows="2">${esc(o.lamsang||'')}</textarea></label><select class="inp mau" id="o_mau" data-to="lamsang" aria-label="Chọn câu mẫu"><option value="">＋ Chọn câu mẫu để thêm vào diễn biến…</option>${mauCau().map(x=>`<option>${esc(x)}</option>`).join('')}</select></div></div>
    <div class="fsec"><div class="lbl">Hô hấp</div><div style="display:grid;gap:8px">${chips('hohap',HOHAP,o)}<div class="frow">${nf('nt','Nhịp thở','lần/phút',o,fl.f)}${nf('spo2','SpO₂','%',o,fl.f)}${nf('fio2','FiO₂','%',o,fl.f)}</div></div></div>
    <div class="fsec"><div class="lbl">Huyết động</div><div style="display:grid;gap:8px"><div class="frow">${nf('m','Mạch','lần/phút',o,fl.f)}${nf('hatt','HA tâm thu','mmHg',o,fl.f)}${nf('hatr','HA tâm trương','mmHg',o,fl.f)}${nf('cvp','CVP','cmH₂O',o,fl.f)}</div>
-     <label class="fld grow"><span>Thuốc vận mạch / trợ tim</span><input data-f="vanmach" id="o_vanmach" value="${esc(o.vanmach||'')}" placeholder="VD: Noradrenalin 0,1 µg/kg/ph"></label></div></div>
+     <label class="fld grow"><span>Thuốc vận mạch / trợ tim</span><input data-f="vanmach" id="o_vanmach" list="dl_vanmach" autocomplete="off" value="${esc(o.vanmach||'')}" placeholder="Bấm để chọn gợi ý hoặc gõ (VD: Noradrenalin 0,1 µg/kg/ph)">${dlHtml('dl_vanmach',sugList('vanmach'))}</label></div></div>
    <div class="fsec"><div class="lbl">Nhiệt độ – Đường huyết</div><div class="frow">${nf('t','Nhiệt độ','°C',o,fl.f)}${nf('dh','Đường huyết','mmol/L',o,fl.f)}${nf('cannang','Cân nặng','kg',o,fl.f)}</div></div>
    <div class="fsec"><div class="lbl">Nước tiểu – Dẫn lưu</div><div style="display:grid;gap:8px"><div class="frow">${nf('nuoctieu','Nước tiểu','ml/giờ',o,fl.f)}${nf('danluu','Dẫn lưu','ml/giờ',o,fl.f)}</div>${chips('tinhchat',TINHCHAT,o)}</div></div>
    <div class="fsec"><div class="lbl">Dịch vào – ra</div><div class="frow">${nf('vao','Tổng dịch vào','ml',o,fl.f,'w')}${nf('ra','Tổng dịch ra','ml',o,fl.f,'w')}
      <button type="button" class="btn sm" data-act="calcra" title="Dịch ra = nước tiểu + dẫn lưu${extraFields().some(f=>f.ra)?' + trường bổ sung':''}">Tính lại dịch ra</button><span class="hint" id="raHint">${o.raTay?'nhập tay':'tự tính'}</span>
      <span class="calc" id="bilanOut">Bilan: <span class="num">${isNaN(b)?'—':signed(b)+' ml'}</span></span></div><div id="fluidTot" class="ftot-wrap">${fluidHtml(k)}</div></div>
+   <div class="fsec"><div class="lbl">Khác</div><div style="display:grid;gap:8px"><label class="fld grow"><span>Thông tin khác cần theo dõi (người nhập tự ghi)</span><textarea data-f="khac" id="o_khac" rows="2" placeholder="Chọn gợi ý bên dưới hoặc gõ thêm (VD: Lactat 2,1; Đau VAS 3)">${esc(o.khac||'')}</textarea></label><select class="inp mau" id="o_mauk" data-to="khac" aria-label="Chọn gợi ý"><option value="">＋ Chọn gợi ý để thêm…</option>${SUG.khac.map(x=>`<option>${esc(x)}</option>`).join('')}</select></div></div>
    ${extraFields().length?`<div class="fsec"><div class="lbl">Theo dõi bổ sung</div><div class="frow">${extraFields().map(f=>`<label class="fld ${f.t==='chu'?'grow':''}"><span>${esc(f.l)}</span><input class="${f.t==='chu'?'':'n w'}" ${f.t==='chu'?'':'inputmode="decimal"'} data-f="x_${f.k}" id="o_x_${f.k}" value="${esc(o['x_'+f.k]??'')}" autocomplete="off"><small class="u">${esc(f.u||'')}</small></label>`).join('')}</div></div>`:''}
    </fieldset>
    <div class="form-f"><label class="fld"><span>Người ghi</span><input id="meInp" class="inp" value="${esc(curUser()?curUser().ten:S.me)}" ${curUser()?'disabled title="Theo người đăng nhập ca"':''} placeholder="Họ tên điều dưỡng/BS" style="width:200px"></label><span class="sp"></span>
@@ -953,13 +977,13 @@ function refreshFormBits(k){
   const o=S.obs[k]||{},fl=flagsOf(o,k);
   const fe=$('#flags');if(fe)fe.innerHTML=flagsHtml(fl);
   const ft=$('#fluidTot');if(ft)ft.innerHTML=fluidHtml(k);
-  {const n=dayN(k,S.info);const ds=document.querySelector(`.tl-day[data-n="${n}"] .dsum`);if(ds){const ks=schedule(S.info,S.obs).filter(x=>dayN(x,S.info)===n);const F=dayFluid(n);ds.textContent=`${ks.filter(x=>hasData(S.obs[x])).length}/${ks.length} mốc`+(F.n?` · bilan ${signed(F.bil)} ml`:'')}}const rh=$('#raHint');if(rh)rh.textContent=o.raTay?'nhập tay':'tự tính';
+  {const n=dayN(k,S.info);const ds=document.querySelector(`.tl-day[data-n="${n}"] .dsum`);if(ds){const ks=schedule(S.info,S.obs).filter(x=>dayN(x,S.info)===n);const F=dayFluid(n);ds.textContent=dsumTxt(ks.filter(x=>hasData(S.obs[x])).length,ks)+(F.n?` · bilan ${signed(F.bil)} ml`:'')}}const rh=$('#raHint');if(rh)rh.textContent=o.raTay?'nhập tay':'tự tính';
   document.querySelectorAll('#formBox input.n').forEach(i=>{i.classList.remove('warn','crit');const l=fl.f[i.dataset.f];if(l)i.classList.add(l)});
   const b=bilan(o);const bo=$('#bilanOut');if(bo)bo.innerHTML=`Bilan: <span class="num">${isNaN(b)?'—':signed(b)+' ml'}</span>`;
   const row=document.querySelector(`.tl-row[data-k="${k}"]`);if(row){const t=document.createElement('div');t.innerHTML=rowHtml(k);row.replaceWith(t.firstChild)}
 }
 function selectKey(k){S.sel=k;const fb=$('#formBox');if(fb)fb.innerHTML=formHtml(k);document.querySelectorAll('.tl-row').forEach(r=>r.classList.toggle('on',r.dataset.k===k));
-  if(S.ro)fb.querySelectorAll('input,textarea,.chip').forEach(e=>e.disabled=true);
+  if(S.ro)fb.querySelectorAll('input,textarea,select,.chip').forEach(e=>e.disabled=true);
   if(window.innerWidth<1000&&fb)fb.scrollIntoView({block:'start',behavior:'smooth'})}
 
 /* ============ TAB XÉT NGHIỆM ============ */
@@ -1102,7 +1126,8 @@ function orderExportRows(){const now=new Date();const out=[];
 /* trường theo dõi bổ sung do khoa định nghĩa */
 function extraFields(){return Array.isArray(S.cfg.extraFields)?S.cfg.extraFields:[]}
 function allRows(){const used=extraFields().filter(f=>Object.values(S.obs).some(o=>has(o['x_'+f.k])));
-  return [...ROWS,...used.map(f=>[f.l+(f.u?` (${f.u})`:''),o=>[[o['x_'+f.k]]]])]}
+  const kh=Object.values(S.obs).some(o=>has(o&&o.khac))?[['Khác',o=>[[o.khac]]]]:[];
+  return [...ROWS,...used.map(f=>[f.l+(f.u?` (${f.u})`:''),o=>[[o['x_'+f.k]]]]),...kh]}
 
 /* ============ BÁO CÁO: MÔ HÌNH CHUNG CHO XEM TRƯỚC & WORD ============ */
 function buildModel(){
@@ -1289,7 +1314,7 @@ async function buildXlsxBlob(){
   const COLS=[['Ngày','n',6],['Giờ','gio',13],['Ý thức','ythuc',16],['Hô hấp','hohap',11],['NT (l/ph)','nt',7],['SpO₂ (%)','spo2',7],['FiO₂ (%)','fio2',7],
     ['Mạch (l/ph)','m',7],['HA tâm thu','hatt',7],['HA tâm trương','hatr',8],['CVP','cvp',6],['Vận mạch','vanmach',20],['Nhiệt độ (°C)','t',7],
     ['Nước tiểu (ml/h)','nuoctieu',8],['Dẫn lưu (ml/h)','danluu',8],['Tính chất DL','tinhchat',13],['Dịch vào (ml)','vao',8],['Dịch ra (ml)','ra',8],
-    ['Bilan (ml)','bilan',8],['Bilan cộng dồn (ml)','cum',9],['Cân nặng (kg)','cannang',7],['Đường huyết (mmol/L)','dh',9],...extraFields().map(f=>[f.l+(f.u?` (${f.u})`:''),'x_'+f.k,12]),['Diễn biến lâm sàng / ghi chú','lamsang',34],['Người ghi','by',16]];
+    ['Bilan (ml)','bilan',8],['Bilan cộng dồn (ml)','cum',9],['Cân nặng (kg)','cannang',7],['Đường huyết (mmol/L)','dh',9],...extraFields().map(f=>[f.l+(f.u?` (${f.u})`:''),'x_'+f.k,12]),['Diễn biến lâm sàng / ghi chú','lamsang',34],['Khác','khac',26],['Người ghi','by',16]];
   const ws=wb.addWorksheet('Theo dõi',{pageSetup:{paperSize:9,orientation:'landscape',fitToPage:true,fitToWidth:1,fitToHeight:0,margins:{left:.3,right:.3,top:.4,bottom:.4,header:.2,footer:.2}}});
   ws.columns=COLS.map(c=>({width:c[2]}));
   titleRows(ws,'BẢNG THEO DÕI HẬU PHẪU TIM',COLS.length);
@@ -1422,6 +1447,7 @@ function settingsHtml(){
    <div class="frow" style="margin-top:8px"><label class="fld grow"><span>Tên trường mới</span><input class="inp" id="ef_l" placeholder="VD: Dẫn lưu màng phổi"></label><label class="fld"><span>Đơn vị</span><input class="inp" id="ef_u" style="width:110px" placeholder="ml/giờ"></label>
    <label class="fld"><span>Kiểu</span><select class="inp" id="ef_t"><option value="so">Số</option><option value="chu">Chữ</option></select></label><label class="fld" style="flex-direction:row;align-items:center;gap:6px;padding-bottom:8px"><input type="checkbox" id="ef_ra"> <span style="text-transform:none;font-size:13px;color:var(--ink);letter-spacing:0">Cộng vào dịch ra</span></label><button class="btn sm pri" data-act="efadd">+ Thêm trường</button></div>`;
   return `${staffHtml()}<div class="sect-t">Lịch theo dõi mặc định cho bệnh nhân mới</div>${planHtml('cfg')}${efHtml}
+  <div class="sect-t">Câu mẫu diễn biến lâm sàng</div><p class="hint" style="margin-top:0">Mỗi dòng một câu. Người nhập chọn từ danh sách thả xuống dưới ô “Diễn biến lâm sàng / ghi chú” để thêm nhanh.</p><textarea class="inp" data-cfg="mauCau" id="c_mauCau" rows="8" style="width:100%;max-width:640px">${esc(c.mauCau!=null&&String(c.mauCau).trim()?c.mauCau:MAU_DEF)}</textarea>
   <div class="sect-t">Tiêu đề báo cáo (dùng chung cho cả khoa)</div><div class="igrid">${ci('donviTren','Đơn vị bên trái – dòng 1')}${ci('donviTren2','Đơn vị bên trái – dòng 2')}${ci('donviPhai','Đơn vị bên phải – dòng 1')}${ci('donviPhai2','Đơn vị bên phải – dòng 2')}</div>
   <div class="sect-t">Ngưỡng cảnh báo</div><p class="hint" style="margin-top:0">Vượt ngưỡng “lưu ý” tô vàng, vượt ngưỡng “báo động” tô đỏ trên phiếu theo dõi và in đỏ trong báo cáo. Để trống nếu không dùng. Ngưỡng tham khảo — khoa tự điều chỉnh theo phác đồ.</p>
   <div class="scroll"><table class="th"><tr><th>Chỉ số</th><th>Báo động dưới</th><th>Lưu ý dưới</th><th>Lưu ý trên</th><th>Báo động trên</th></tr>
@@ -1528,8 +1554,11 @@ document.addEventListener('click',e=>{
   if(t.closest('#flt')&&t.dataset.f){S.filter=t.dataset.f;document.querySelectorAll('#flt button').forEach(b=>b.classList.toggle('on',b===t));renderList();return}
   if(t.dataset.tab){S.tab=t.dataset.tab;if(!S.cur){renderMain();return}document.querySelectorAll('.tabs button').forEach(b=>b.classList.toggle('on',b.dataset.tab===S.tab));renderTab();return}
   if(t.dataset.k&&t.classList.contains('tl-row')&&!t.dataset.act){selectKey(t.dataset.k);return}
-  if(t.dataset.chip&&!S.ro){const k=S.sel,f=t.dataset.chip;const cur=(S.obs[k]||{})[f];updateObsField(k,f,cur===t.dataset.v?'':t.dataset.v);
-    t.parentElement.querySelectorAll('.chip').forEach(c=>c.classList.toggle('on',c===t&&cur!==t.dataset.v));return}
+  if(t.dataset.chipk&&!S.ro){const f=t.dataset.chipk,box=t.parentElement,w=box.querySelector('.khacw'),inp=w.querySelector('input');
+    if(!w.hidden){const had=inp.value.trim();w.hidden=true;inp.value='';t.classList.remove('on');if(had)updateObsField(S.sel,f,chipCompose(box));return}
+    w.hidden=false;t.classList.add('on');inp.focus();return}
+  if(t.dataset.chip&&!S.ro){const box=t.parentElement,f=t.dataset.chip;const o=S.obs[S.sel];if(hasData(o)&&!canEditRec(o.byId)){updateObsField(S.sel,f,'');return}
+    t.classList.toggle('on');updateObsField(S.sel,f,chipCompose(box));return}
   const act=t.dataset.act;if(!act)return;
   if(act==='vform'||act==='vtable'){S.obsView=act==='vtable'?'table':'form';renderTab();return}
   if(act==='opennk'){S.obsView='form';S.sel=t.dataset.k;renderTab();return}
@@ -1545,7 +1574,7 @@ document.addEventListener('click',e=>{
   if(act==='fblogout'){lsSet('hpt-fbuser',null);S.fbUser=null;S.me='';renderAll();toast('Đã đăng xuất – đang ở chế độ xem');return}
   if(act==='mypin'){const u=curUser();if(u)staffModal(u);return}
   if(act==='logout'){S.login=null;lsSet('hpt-login',null);renderAll();toast('Đã đăng xuất');return}
-  const WRITE=['report','reportadd','new','demo','import','extra','copyprev','calcra','clearobs','addlab','dellab','suggest','planadd','planrem','planpre','plancfg'];
+  const WRITE=['movek','report','reportadd','new','demo','import','extra','copyprev','calcra','clearobs','addlab','dellab','suggest','planadd','planrem','planpre','plancfg'];
   if((WRITE.includes(act)||t.id==='btnNew')&&S.ro){needLogin();return}
   if((['delpt','resetth','staffdel','orderadd','orderend','orderdel','efadd','efdel'].includes(act)||(act==='staffadd'&&staffList().length)||(t.dataset.scope==='cfg'))&&!canAdmin()){toast('Cần quyền Quản trị');return}
   if(act==='orderadd')return orderModal();
@@ -1574,6 +1603,16 @@ document.addEventListener('click',e=>{
   if(act==='backup')return backup();
   if(act==='now'){const keys=schedule(S.info,S.obs);const now=new Date();const k=[...keys].reverse().find(k=>fromKey(k)<=now)||keys[0];selectKey(k);const f=$('#o_m');if(f)f.focus();return}
   if(act==='nextk'){const keys=schedule(S.info,S.obs);const i=keys.indexOf(S.sel);if(i<keys.length-1)selectKey(keys[i+1]);return}
+  if(act==='movek'){const k=S.sel;const o=S.obs[k]||{};if(hasData(o)&&!canEditRec(o.byId)){toast('Mốc này do '+(o.by||'người khác')+' ghi');return}
+    modal(`<h3>Đổi ngày/giờ mốc ${hLabel(k)}</h3><p class="hint" style="margin:0">Dùng khi thời điểm đo thực tế khác giờ trên lịch (ví dụ đo lúc 0h15 thay vì 0h). Số liệu đã ghi được chuyển sang thời điểm mới; mốc lịch cũ được tính là đã ghi.</p><div class="fld"><span>Thời điểm thực tế</span>${dtHtml('mv_t',k)}</div><div class="acts"><button class="btn" data-m="cancel">Huỷ</button><button class="btn pri" data-m="ok">Đổi giờ</button></div>`,r=>{
+      const k2=dtVal('mv_t',r);if(!k2)return false;if(k2===k)return;
+      if(hasData(S.obs[k2])){toast('Đã có số liệu lúc '+hLabel(k2)+' – chọn thời điểm khác');return false}
+      const pid=S.cur;const slot=o.slot||(isScheduled(k,S.info)?k:'');
+      const o2={...o,k:k2,at:Date.now()};if(slot&&slot!==k2)o2.slot=slot;else delete o2.slot;
+      clearTimeout(deb['obs'+pid+k]);pendingKeys.delete('obs'+pid+k);
+      delete S.obs[k];S.obs[k2]=o2;
+      if(hasData(o)){stampObs(o2,o);store.saveObs(pid,k2,o2);store.delObs(pid,k)}
+      S.sel=k2;S.tlDay=null;renderTab();selectKey(k2);toast('Đã chuyển mốc sang '+hLabel(k2))});return}
   if(act==='extra'){modal(`<h3>Thêm mốc theo dõi bổ sung</h3><p class="hint" style="margin:0">Dùng khi có diễn biến bất thường cần ghi ngoài lịch.</p><div class="fld"><span>Thời điểm</span>${dtHtml('ex_t',toKey(new Date()))}</div><div class="acts"><button class="btn" data-m="cancel">Huỷ</button><button class="btn pri" data-m="ok">Thêm mốc</button></div>`,r=>{
       const k=dtVal('ex_t',r);if(!k)return false;S.obs[k]=S.obs[k]||{k,at:Date.now()};renderTab();selectKey(k)});return}
   if(act==='copyprev'){if(hasData(S.obs[S.sel])&&!canEditRec(S.obs[S.sel].byId)){toast('Mốc này do người khác ghi');return}const ks=Object.keys(S.obs).filter(k=>k<S.sel&&hasData(S.obs[k])).sort();const pk=ks[ks.length-1];if(!pk){toast('Chưa có mốc trước để lấy mô tả');return}
@@ -1606,6 +1645,7 @@ document.addEventListener('input',e=>{
   const t=e.target;if(S.ro&&!t.closest('.rep-opts')&&t.id!=='meInp'&&t.id!=='psearch'&&!t.closest('.modal'))return;
   if(t.id==='psearch'){S.q=t.value;renderList();return}
   if(t.id==='meInp'){S.me=t.value.trim();lsSet('hpt-me',S.me);return}
+  if(t.dataset.khacf&&S.sel){updateObsField(S.sel,t.dataset.khacf,chipCompose(t.closest('.chips')));return}
   if(t.dataset.f&&S.sel){updateObsField(S.sel,t.dataset.f,t.value.trim()?t.value:'');return}
   if(t.dataset.i){setInfo(t.dataset.i,t.value);if(t.dataset.i==='hoTen')renderList();return}
   if(t.dataset.lab){const k=t.dataset.lab,a=t.dataset.a;if(!canEditRec((S.labs[k]||{}).byId))return;const L={...(S.labs[k]||{k}),v:{...((S.labs[k]||{}).v||{})}};if(t.value.trim())L.v[a]=t.value;else delete L.v[a];delete L.fresh;S.labs[k]=L;
@@ -1618,6 +1658,9 @@ document.addEventListener('input',e=>{
 });
 document.addEventListener('change',e=>{
   const t=e.target;
+  if(t.classList.contains('mau')&&t.dataset.to){const v=t.value;t.value='';const f=t.dataset.to,ta=$('#o_'+f);if(!v||!ta||ta.disabled||S.ro||!S.sel)return;const sep=f==='khac'?'; ':'. ';const cur=ta.value.replace(/[\s.;,]+$/,'');const nv=cur?cur+sep+v:v;ta.value=nv;updateObsField(S.sel,f,nv);return}
+  if(t.id==='tlShow'){S.tlShow=t.value;renderTab();return}
+  if(t.id==='tlDay'){S.tlDay=t.value===''?null:+t.value;renderTab();return}
   if(t.dataset.staff){if(!canAdmin())return;const id=t.dataset.staff,v=t.value;const st=staffList();
     if(v!=='admin'&&st.find(x=>x.id===id).role==='admin'&&st.filter(x=>x.role==='admin').length===1){toast('Phải còn ít nhất một Quản trị');t.value='admin';return}
     saveStaff(st.map(x=>x.id===id?{...x,role:v}:x));return}
