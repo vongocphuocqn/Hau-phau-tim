@@ -117,6 +117,9 @@ h1,h2,h3{text-wrap:balance;margin:0}
 /* observation */
 .obs{display:grid;grid-template-columns:minmax(260px,340px) minmax(0,1fr);gap:14px}
 @media (max-width:1000px){.obs{grid-template-columns:minmax(0,1fr)}}
+.hgrid{display:grid;grid-template-columns:repeat(6,1fr);gap:4px}.hcb{display:flex;align-items:center;justify-content:center;gap:4px;border:1px solid var(--line);border-radius:8px;padding:6px 0;cursor:pointer;font-size:13px}.hcb:has(input:checked){background:var(--accent-soft);border-color:var(--accent-2)}.hcb input{margin:0}
+.phg{display:grid;grid-template-columns:repeat(12,26px);gap:3px}.ph{height:24px;border:1px solid var(--line);border-radius:5px;background:transparent;font-size:11px;color:var(--muted);padding:0;font-family:inherit}.ph.on{background:var(--accent);border-color:var(--accent);color:var(--on-accent);font-weight:600}.ph:disabled{cursor:default}
+.hml{display:flex;flex-wrap:wrap;gap:4px 10px;font-size:12px}.hm{white-space:nowrap}
 .tl-tools{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px;align-items:center}
 .tl-daysel{display:flex;align-items:center;gap:6px;margin-left:auto;font-size:12px;color:var(--muted);font-weight:600}.tl-daysel select{height:32px;padding:2px 8px;font-size:13px;width:auto}
 .tl{border:1px solid var(--line);border-radius:var(--r);max-height:640px;overflow:auto;background:var(--panel)}
@@ -287,7 +290,7 @@ fieldset{border:0;margin:0;padding:0;min-width:0}
 <header class="top">
   <div class="brand">
     <svg width="34" height="34" viewBox="0 0 34 34" aria-hidden="true"><rect width="34" height="34" rx="8" fill="var(--accent)"/><path d="M4 18h6l3-7 4 13 3-9 2 3h8" fill="none" stroke="var(--on-accent)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-    <div><h1>Theo dõi Hậu phẫu Tim</h1><small>Khoa Gây mê Hồi sức · BVĐK Trung tâm tỉnh Gia Lai · <b>bản 25/10-I</b></small></div>
+    <div><h1>Theo dõi Hậu phẫu Tim</h1><small>Khoa Gây mê Hồi sức · BVĐK Trung tâm tỉnh Gia Lai · <b>bản 25/10-L</b></small></div>
   </div>
   <div class="sp"></div>
   <button class="sync" id="sync" data-act="conn" title="Kết nối dữ liệu chung"><i></i><span>Đang kết nối…</span></button>
@@ -479,7 +482,7 @@ function staffHtml(){if(false)return `<div class="sect-t">Người dùng & phân
    ${adm?'<div style="margin-top:8px"><button class="btn sm pri" data-act="staffadd">+ Thêm người dùng</button></div>':''}
    <div class="scroll" style="max-width:760px;margin-top:12px"><table class="th"><tr><th>Quyền</th><th>Được làm</th></tr>
     <tr><td><span class="rb admin">Quản trị</span></td><td>Toàn bộ quyền Nhập liệu; sửa cài đặt (lịch mặc định, ngưỡng cảnh báo, tiêu đề báo cáo); thêm/xoá người dùng, đặt lại PIN; xoá hồ sơ bệnh nhân</td></tr>
-    <tr><td><span class="rb nhap">Nhập liệu</span></td><td>Tạo bệnh nhân mới, ghi theo dõi, nhập xét nghiệm, sửa thông tin và lịch theo dõi của bệnh nhân, xuất Word/Excel</td></tr>
+    <tr><td><span class="rb nhap">Nhập liệu</span></td><td>Tạo bệnh nhân mới, ghi theo dõi, nhập xét nghiệm, sửa thông tin bệnh nhân (lịch theo dõi do Quản trị đặt), xuất Word/Excel</td></tr>
     <tr><td><span class="rb xem">Chỉ xem</span></td><td>Xem hồ sơ, biểu đồ, cảnh báo; xem trước và xuất báo cáo Word/Excel; không sửa được số liệu</td></tr></table></div>
    <p class="hint">Khi dùng link chia sẻ của Claude, người được mời với quyền Viewer/Commenter luôn chỉ xem, dù đăng nhập ca với quyền nào. Mã PIN là lớp khoá trong khoa để phân biệt người ghi, không thay thế mật khẩu tài khoản.</p>`}
 
@@ -730,21 +733,27 @@ function opDay(info){const s=info.ngayPT||(info.veHoiSuc||'').slice(0,10);return
 function dayN(k,info){const o=opDay(info);if(!o)return 0;const d=fromKey(k);const m=new Date(d.getFullYear(),d.getMonth(),d.getDate());return Math.round((m-o)/864e5)}
 /* lịch theo dõi theo từng ngày: plan = [khoảng giờ ngày 1, ngày 2, …], planRest = các ngày sau */
 const INTS=[1,2,3,4,6,8,12];
-function getPlan(o){o=o||{};if(Array.isArray(o.plan)&&o.plan.length)return {days:o.plan.map(x=>Math.max(1,+x||1)),rest:Math.max(1,+o.planRest||3)};
-  const H=+o.hourlyHours||24;return {days:Array(Math.max(1,Math.ceil(H/24))).fill(1),rest:Math.max(1,+o.interval||3)}}
-function intervalAt(info,d){const P=getPlan(info);return d<P.days.length?P.days[d]:P.rest}
+function normI(x){if(typeof x==='string'&&x.startsWith('h:')){const hs=[...new Set(x.slice(2).split(',').filter(v=>v!=='').map(Number).filter(n=>n>=0&&n<24))].sort((a,b)=>a-b);return hs.length?'h:'+hs.join(','):3}return Math.max(1,+x||1)}
+function hoursOf(I){if(typeof I==='string')return I.slice(2).split(',').map(Number);return [...Array(24).keys()].filter(h=>I===1||h%I===0)}
+function ivNum(I){return typeof I==='number'?I:1}
+function normEnds(days,e){const out=[];let prev=0;days.forEach((_,i)=>{let v=Array.isArray(e)?Math.round(+e[i]):NaN;if(!(v>prev))v=prev+24;v=Math.min(v,720);if(v<=prev)v=prev+1;out.push(v);prev=v});return out}
+function getPlan(o){o=o||{};if(Array.isArray(o.plan)&&o.plan.length){const days=o.plan.map(normI);return {days,rest:o.planRest!=null?normI(o.planRest):3,ends:normEnds(days,o.planEnd)}}
+  const H=+o.hourlyHours||24;const days=Array(Math.max(1,Math.ceil(H/24))).fill(1);return {days,rest:Math.max(1,+o.interval||3),ends:normEnds(days,[H])}}
+function segAt(P,h){let st=0;for(let i=0;i<P.days.length;i++){if(h<P.ends[i])return {i,I:P.days[i],st};st=P.ends[i]}return {i:'rest',I:P.rest,st}}
+function intervalAtH(info,h){return segAt(getPlan(info),h).I}
 function startHour(info){const a=arrivalDate(info);if(!a)return null;const s=new Date(a);if(s.getMinutes()||s.getSeconds()){s.setMinutes(0,0,0);s.setHours(s.getHours()+1)}return s}
-function hourly(info){const P=getPlan(info);let n=0;while(n<P.days.length&&P.days[n]===1)n++;return n*24}
-function slotOK(t,h,info){const d=Math.floor(h/24);const fit=I=>I===1||t.getHours()%I===0;if(fit(intervalAt(info,d)))return true;return h>0&&h%24===0&&fit(intervalAt(info,d-1))}
+function hourly(info){const P=getPlan(info);let n=0;while(n<P.days.length&&P.days[n]===1)n++;return n?P.ends[n-1]:0}
+function slotOK(t,h,info){const g=segAt(getPlan(info),h);if(typeof g.I==='string')return hoursOf(g.I).includes(t.getHours());return (h-g.st)%g.I===0}
 function schedule(info,obs){
   const set=new Set(Object.keys(obs||{}));const s=startHour(info);
   if(s){
     const now=new Date();const curD=Math.max(0,Math.floor((now-s)/864e5));
-    let end=new Date(Math.max(now.getTime()+intervalAt(info,curD)*36e5,s.getTime()));
+    let end=new Date(Math.max(now.getTime()+ivNum(intervalAtH(info,Math.max(0,(now-s)/36e5)))*36e5,s.getTime()));
     if(info.trangThai&&info.trangThai!=='dang'){const ks=Object.keys(obs||{}).sort();end=ks.length?fromKey(ks[ks.length-1]):new Date(s.getTime()+24*36e5)}
     const cap=s.getTime()+21*864e5;if(end>cap)end=new Date(cap);
     for(let h=0;;h++){const t=new Date(s.getTime()+h*36e5);if(t>end)break;if(h===0||slotOK(t,h,info))set.add(toKey(t))}
   }
+  (Array.isArray(info.extraSlots)?info.extraSlots:[]).forEach(k=>set.add(k));
   Object.values(obs||{}).forEach(o=>{if(o&&o.slot&&o.slot!==o.k&&hasData(o)&&!hasData((obs||{})[o.slot]))set.delete(o.slot)});
   return [...set].sort();
 }
@@ -754,26 +763,36 @@ function status(k,o){if(hasData(o))return 'done';const t=fromKey(k),now=new Date
 function phaseText(info){const a=arrivalDate(info);if(!a)return null;const h=(Date.now()-a)/36e5;
   if(info.trangThai&&info.trangThai!=='dang')return {t:info.trangThai==='chuyen'?'Đã chuyển khoa':'Đã ra viện',slow:true};
   if(h<0)return {t:'Chưa về hồi sức',slow:false};
-  const d=Math.floor(h/24),I=intervalAt(info,d);
-  return I===1?{t:`Ngày ${d+1} · giờ thứ ${Math.floor(h)+1} · theo dõi mỗi giờ`,slow:false}:{t:`Ngày ${d+1} · theo dõi mỗi ${I} giờ`,slow:true}}
+  const I=intervalAtH(info,h),g=`Giờ thứ ${Math.floor(h)} sau về HS`;
+  return I===1?{t:`${g} · theo dõi mỗi giờ`,slow:false}:typeof I==='string'?{t:`${g} · ${hoursOf(I).length} mốc/ngày`,slow:true}:{t:`${g} · theo dõi mỗi ${I} giờ`,slow:true}}
+const PLAN_PRE=[['h:7,19','2 lần/ngày (7h, 19h)'],['h:8,16','2 lần/ngày (8h, 16h)'],['h:6,14,22','3 lần/ngày (6h, 14h, 22h)'],['h:0,6,12,18','4 lần/ngày (0h, 6h, 12h, 18h)'],['h:6,10,14,18,22','5 lần/ngày (6h–22h, mỗi 4 giờ)'],['h:6,8,10,12,14,16,18,20,22','Ban ngày mỗi 2 giờ (6h–22h)']];
 function planHtml(scope){
-  const P=getPlan(scope==='cfg'?S.cfg:S.info);const opt=v=>INTS.map(x=>`<option value="${x}" ${x===v?'selected':''}>Mỗi ${x} giờ</option>`).join('');
-  const rows=P.days.map((I,i)=>`<tr><td><b>Ngày ${i+1}</b></td><td class="num">${i*24}–${(i+1)*24} giờ</td><td><select class="inp" data-plan="${scope}" data-day="${i}" id="pl_${scope}_${i}">${opt(I)}</select></td><td class="num">${24/I} mốc</td></tr>`).join('');
-  const n=P.days.length;
-  return `<div class="scroll" style="max-width:640px"><table class="th"><tr><th>Ngày theo dõi</th><th>Tính từ giờ về HS</th><th>Ghi số liệu</th><th>Số mốc/ngày</th></tr>${rows}
-    <tr><td><b>Từ ngày ${n+1} trở đi</b></td><td class="num">sau ${n*24} giờ</td><td><select class="inp" data-plan="${scope}" data-day="rest" id="pl_${scope}_rest">${opt(P.rest)}</select></td><td class="num">${24/P.rest} mốc</td></tr></table></div>
-    <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;align-items:center" ${S.ro?'hidden':''}>
-     <button class="btn sm" data-act="planadd" data-scope="${scope}">+ Thêm ngày</button>${n>1?`<button class="btn sm" data-act="planrem" data-scope="${scope}">− Bớt ngày cuối</button>`:''}
+  const P=getPlan(scope==='cfg'?S.cfg:S.info);const ed=!S.ro&&canAdmin();
+  const opt=v=>{const pre=PLAN_PRE.some(([x])=>x===v);return INTS.map(x=>`<option value="${x}" ${x===v?'selected':''}>Mỗi ${x} giờ</option>`).join('')+PLAN_PRE.map(([x,l])=>`<option value="${x}" ${x===v?'selected':''}>${l}</option>`).join('')+`<option value="custom" ${typeof v==='string'&&!pre?'selected':''}>Tự chọn giờ…</option>`};
+  const hrs=(I,day)=>{const hs=hoursOf(I);return `<div class="phg">${[...Array(24).keys()].map(h=>`<button type="button" class="ph ${hs.includes(h)?'on':''}" ${ed?`data-planh="${scope}" data-day="${day}" data-h="${h}"`:'disabled'} title="${h}h">${h}</button>`).join('')}</div>`};
+  const s0=scope==='info'?startHour(S.info):null;
+  const clk=h=>{if(!s0)return '';const d=new Date(s0.getTime()+h*36e5);return ` <small class="hint">(${d.getHours()}h${d.getDate()!==s0.getDate()||h>=24?' '+pad(d.getDate())+'/'+pad(d.getMonth()+1):''})</small>`};
+  const list=(I,st,en)=>{if(typeof I==='string')return hrs(I,null);const L=[];for(let h=st;h<(en??st+24)&&L.length<7;h+=I)L.push(`<span class="hm">giờ ${h}${clk(h)}</span>`);const more=en!=null&&(en-st)/I>7||en==null;return `<div class="hml">${L.join('')}${more?'<span class="hint">…</span>':''}</div>`};
+  const cnt=(I,st,en)=>typeof I==='string'?hoursOf(I).length+' mốc/ngày':en!=null?Math.ceil((en-st)/I)+' mốc':24/I+' mốc/ngày';
+  const endInp=(i,en,st)=>ed?`<input class="inp num" type="number" min="${st+1}" max="720" step="1" data-planend="${scope}" data-seg="${i}" id="pe_${scope}_${i}" value="${en}" style="width:74px;display:inline-block">`:`<b>${en}</b>`;
+  const row=(lab,rng,I,day,st,en)=>`<tr><td><b>${lab}</b></td><td class="num" style="white-space:nowrap">${rng}</td><td><select class="inp" data-plan="${scope}" data-day="${day}" id="pl_${scope}_${day}" ${ed?'':'disabled'}>${opt(I)}</select></td><td class="num">${cnt(I,st,en)}</td><td>${typeof I==='string'?hrs(I,day):list(I,st,en)}</td></tr>`;
+  const n=P.days.length;const lastE=P.ends[n-1];
+  return `<div class="scroll"><table class="th"><tr><th>Giai đoạn</th><th>Giờ thứ (tính từ lúc hồi sức tiếp nhận)</th><th>Ghi số liệu</th><th>Số mốc</th><th>Các mốc ${ed?'<small style="font-weight:400">(giờ thứ · giờ đồng hồ)</small>':''}</th></tr>${P.days.map((I,i)=>{const st=i?P.ends[i-1]:0;return row('Giai đoạn '+(i+1),`${st} → ${endInp(i,P.ends[i],st)} giờ`,I,i,st,P.ends[i])}).join('')}
+    ${row('Sau đó',`sau giờ ${lastE}`,P.rest,'rest',lastE,null)}</table></div>
+    <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;align-items:center" ${S.ro||!canAdmin()?'hidden':''}>
+     <button class="btn sm" data-act="planadd" data-scope="${scope}">+ Thêm giai đoạn</button>${n>1?`<button class="btn sm" data-act="planrem" data-scope="${scope}">− Bớt giai đoạn cuối</button>`:''}
      <span class="hint" style="margin-left:6px">Mẫu nhanh:</span>
-     <button class="btn sm ghost" data-act="planpre" data-scope="${scope}" data-p="1;3">Chuẩn: ngày 1 mỗi giờ → mỗi 3 giờ</button>
-     <button class="btn sm ghost" data-act="planpre" data-scope="${scope}" data-p="1,1,2;3">Nặng: 2 ngày mỗi giờ → ngày 3 mỗi 2 giờ → mỗi 3 giờ</button>
-     <button class="btn sm ghost" data-act="planpre" data-scope="${scope}" data-p="1,2;4">Ổn định nhanh: ngày 2 mỗi 2 giờ → mỗi 4 giờ</button>
+     <button class="btn sm ghost" data-act="planpre" data-scope="${scope}" data-p="1;3;24">Chuẩn: mỗi giờ đến giờ 24 → mỗi 3 giờ</button>
+     <button class="btn sm ghost" data-act="planpre" data-scope="${scope}" data-p="1,2;3;24,36">Mỗi giờ đến giờ 24 → mỗi 2 giờ đến giờ 36 → mỗi 3 giờ</button>
+     <button class="btn sm ghost" data-act="planpre" data-scope="${scope}" data-p="1,2;3;28,36">Mỗi giờ đến giờ 28 → mỗi 2 giờ đến giờ 36 → mỗi 3 giờ</button>
+     <button class="btn sm ghost" data-act="planpre" data-scope="${scope}" data-p="1,2;3;48,72">Nặng: mỗi giờ đến giờ 48 → mỗi 2 giờ đến giờ 72 → mỗi 3 giờ</button>
      ${scope==='info'?'<button class="btn sm" data-act="plancfg">Áp dụng lịch mặc định của khoa</button>':''}</div>
-    <p class="hint" style="margin:6px 0 0">Mốc giãn cách (2, 3, 4… giờ) canh theo giờ chẵn của đồng hồ, ví dụ mỗi 3 giờ: 0h, 3h, 6h, 9h… Số liệu đã ghi không bị mất khi đổi lịch.</p>`;
+    <p class="hint" style="margin:6px 0 0">Giờ thứ tính từ lúc hồi sức tiếp nhận (giờ 0 = giờ về hồi sức, làm tròn lên giờ chẵn). Quản trị gõ “đến giờ thứ” cho từng giai đoạn (VD 24, 28, 36…) và chọn cách ghi: mỗi 1/2/3… giờ tính từ đầu giai đoạn, hoặc giờ cố định trong ngày (2–5 lần/ngày, tự chọn giờ). Số liệu đã ghi không bị mất khi đổi lịch.</p>`;
 }
 function savePlan(scope,P){
-  if(scope==='cfg'){S.cfg={...S.cfg,plan:P.days,planRest:P.rest};later('cfg',()=>store.saveCfg(S.cfg),200);renderTab();return}
-  S.info={...S.info,plan:P.days,planRest:P.rest};const pid=S.cur;S.patients[pid]=S.info;later('info'+pid,()=>store.saveInfo(pid,S.info),200);
+  P.ends=normEnds(P.days,P.ends);
+  if(scope==='cfg'){S.cfg={...S.cfg,plan:P.days,planRest:P.rest,planEnd:P.ends};later('cfg',()=>store.saveCfg(S.cfg),200);renderTab();return}
+  S.info={...S.info,plan:P.days,planRest:P.rest,planEnd:P.ends};const pid=S.cur;S.patients[pid]=S.info;later('info'+pid,()=>store.saveInfo(pid,S.info),200);
   const sc=window.scrollY;renderMain();window.scrollTo(0,sc);
 }
 
@@ -900,7 +919,7 @@ function timelineHtml(keys){
   if(S.tlDay!=null&&!nums.includes(S.tlDay))S.tlDay=null;
   const dsel=`<label class="tl-daysel"><span>Ngày</span><select class="inp" id="tlDay"><option value="">Tất cả các ngày</option>${nums.map(n=>{const d=fromKey(groups[n][0]);return `<option value="${n}" ${S.tlDay===n?'selected':''}>N${n} · ${pad(d.getDate())}/${pad(d.getMonth()+1)}/${d.getFullYear()}</option>`}).join('')}</select></label>`;
   const shw=S.tlShow||'';const ssel=`<label class="tl-daysel"><span>Hiển thị</span><select class="inp" id="tlShow"><option value="">Tất cả mốc</option><option value="chua" ${shw==='chua'?'selected':''}>Chỉ mốc chưa nhập</option><option value="da" ${shw==='da'?'selected':''}>Chỉ mốc đã nhập</option></select></label>`;
-  let html=`<div class="tl-tools">${S.ro?'':'<button class="btn sm pri" data-act="now">Ghi mốc hiện tại</button><button class="btn sm" data-act="extra">+ Mốc bổ sung</button>'}${dsel}${ssel}</div><div class="tl" id="tl">`;
+  let html=`<div class="tl-tools">${S.ro?'':'<button class="btn sm pri" data-act="now">Ghi mốc hiện tại</button><button class="btn sm" data-act="extra">'+(canAdmin()?'+ Khai báo mốc':'+ Mốc bổ sung')+'</button>'}${dsel}${ssel}</div><div class="tl" id="tl">`;
   for(const n of nums){if(S.tlDay!=null&&n!==S.tlDay)continue;
     const ks=groups[n].slice().reverse();const d=fromKey(ks[0]);
     const done=ks.filter(k=>hasData(S.obs[k])).length;
@@ -1525,7 +1544,7 @@ function newPatient(){
    <label class="fld"><span>Ngày phẫu thuật</span><input class="inp" type="date" id="np_op" value="${toKey(new Date()).slice(0,10)}"></label>
    <div class="acts"><button class="btn" data-m="cancel">Huỷ</button><button class="btn pri" data-m="ok">Tạo hồ sơ</button></div>`,r=>{
     const name=r.querySelector('#np_name').value.trim();const t=dtVal('np_time',r);if(!t){toast('Chọn ngày về hồi sức');return false}if(!name){r.querySelector('#np_name').focus();return false}
-    const pid='p'+uid();const info={hoTen:name,veHoiSuc:t,ngayPT:r.querySelector('#np_op').value||t.slice(0,10),plan:getPlan(S.cfg).days,planRest:getPlan(S.cfg).rest,trangThai:'dang',taoLuc:Date.now()};
+    const pid='p'+uid();const info={hoTen:name,veHoiSuc:t,ngayPT:r.querySelector('#np_op').value||t.slice(0,10),plan:getPlan(S.cfg).days,planRest:getPlan(S.cfg).rest,planEnd:getPlan(S.cfg).ends,trangThai:'dang',taoLuc:Date.now()};
     S.patients[pid]=info;store.saveInfo(pid,info);S.tab='thongtin';openPatient(pid);toast('Đã tạo hồ sơ. Bổ sung thông tin phẫu thuật bên dưới.');
   });
 }
@@ -1559,6 +1578,9 @@ document.addEventListener('click',e=>{
     w.hidden=false;t.classList.add('on');inp.focus();return}
   if(t.dataset.chip&&!S.ro){const box=t.parentElement,f=t.dataset.chip;const o=S.obs[S.sel];if(hasData(o)&&!canEditRec(o.byId)){updateObsField(S.sel,f,'');return}
     t.classList.toggle('on');updateObsField(S.sel,f,chipCompose(box));return}
+  if(t.dataset.planh){if(S.ro||!canAdmin())return;const sc=t.dataset.planh;const P=getPlan(sc==='cfg'?S.cfg:S.info);const day=t.dataset.day;const cur=day==='rest'?P.rest:P.days[+day];const h=+t.dataset.h;
+    let hs=hoursOf(cur);hs=hs.includes(h)?hs.filter(x=>x!==h):[...hs,h].sort((a,b)=>a-b);if(!hs.length){toast('Mỗi ngày cần ít nhất 1 mốc');return}
+    const v=hs.length===24?1:'h:'+hs.join(',');if(day==='rest')P.rest=v;else P.days[+day]=v;savePlan(sc,P);return}
   const act=t.dataset.act;if(!act)return;
   if(act==='vform'||act==='vtable'){S.obsView=act==='vtable'?'table':'form';renderTab();return}
   if(act==='opennk'){S.obsView='form';S.sel=t.dataset.k;renderTab();return}
@@ -1613,13 +1635,31 @@ document.addEventListener('click',e=>{
       delete S.obs[k];S.obs[k2]=o2;
       if(hasData(o)){stampObs(o2,o);store.saveObs(pid,k2,o2);store.delObs(pid,k)}
       S.sel=k2;S.tlDay=null;renderTab();selectKey(k2);toast('Đã chuyển mốc sang '+hLabel(k2))});return}
+  if(act==='extra'&&canAdmin()){const d0=(S.sel||toKey(new Date())).slice(0,10);
+    modal(`<h3>Khai báo mốc theo dõi trong ngày</h3><p class="hint" style="margin:0">Quản trị chọn nhiều giờ cần theo dõi thêm. Các mốc này hiện cho mọi người nhập liệu, quá giờ chưa nhập sẽ báo “Chưa nhập”.</p>
+      <label class="fld"><span>Ngày</span><input type="date" class="inp" id="mx_d" value="${d0}" style="width:200px"></label>
+      <div class="fld"><span>Chọn giờ (bấm nhiều giờ)</span><div class="hgrid">${[...Array(24)].map((_,h)=>`<label class="hcb"><input type="checkbox" value="${pad(h)}"><b>${pad(h)}</b></label>`).join('')}</div>
+      <div style="display:flex;gap:6px;align-items:center;margin-top:6px;flex-wrap:wrap"><span class="hint">Phút:</span><select class="inp" id="mx_m" style="width:80px">${['00','15','30','45'].map(x=>`<option>${x}</option>`).join('')}</select>
+      <button type="button" class="btn sm ghost" id="mx_all2">Mỗi 2 giờ</button><button type="button" class="btn sm ghost" id="mx_all4">Mỗi 4 giờ</button><button type="button" class="btn sm ghost" id="mx_none">Bỏ chọn</button></div></div>
+      <label class="fld"><span>Giờ lẻ khác (tuỳ chọn)</span><input class="inp" id="mx_x" placeholder="VD: 14:20, 22:45" autocomplete="off"></label>
+      <div class="acts"><button class="btn" data-m="cancel">Huỷ</button><button class="btn pri" data-m="ok">Thêm các mốc</button></div>`,r=>{
+      const d=r.querySelector('#mx_d').value;if(!d){toast('Chọn ngày');return false}const mm=r.querySelector('#mx_m').value;
+      const ks=[...r.querySelectorAll('.hgrid input:checked')].map(c=>`${d}T${c.value}:${mm}`);
+      String(r.querySelector('#mx_x').value||'').split(/[,;\s]+/).forEach(x=>{const m=x.match(/^(\d{1,2})[:hH.]?(\d{2})?$/);if(m&&+m[1]<24&&+(m[2]||0)<60)ks.push(`${d}T${pad(+m[1])}:${pad(+(m[2]||0))}`)});
+      if(!ks.length){toast('Chưa chọn giờ nào');return false}
+      const cur=Array.isArray(S.info.extraSlots)?S.info.extraSlots:[];const sch=schedule(S.info,S.obs);const add=[...new Set(ks)].filter(k=>!sch.includes(k));
+      if(!add.length){toast('Các giờ này đã có trong lịch');return}
+      setInfo('extraSlots',[...cur,...add].sort());S.tlDay=null;renderTab();selectKey(add[0]);toast('Đã thêm '+add.length+' mốc theo dõi')});
+    const r=$('#modalRoot');const cbs=()=>[...r.querySelectorAll('.hgrid input')];
+    r.querySelector('#mx_all2').onclick=()=>cbs().forEach(c=>c.checked=+c.value%2===0);r.querySelector('#mx_all4').onclick=()=>cbs().forEach(c=>c.checked=+c.value%4===0);r.querySelector('#mx_none').onclick=()=>cbs().forEach(c=>c.checked=false);return}
   if(act==='extra'){modal(`<h3>Thêm mốc theo dõi bổ sung</h3><p class="hint" style="margin:0">Dùng khi có diễn biến bất thường cần ghi ngoài lịch.</p><div class="fld"><span>Thời điểm</span>${dtHtml('ex_t',toKey(new Date()))}</div><div class="acts"><button class="btn" data-m="cancel">Huỷ</button><button class="btn pri" data-m="ok">Thêm mốc</button></div>`,r=>{
       const k=dtVal('ex_t',r);if(!k)return false;S.obs[k]=S.obs[k]||{k,at:Date.now()};renderTab();selectKey(k)});return}
   if(act==='copyprev'){if(hasData(S.obs[S.sel])&&!canEditRec(S.obs[S.sel].byId)){toast('Mốc này do người khác ghi');return}const ks=Object.keys(S.obs).filter(k=>k<S.sel&&hasData(S.obs[k])).sort();const pk=ks[ks.length-1];if(!pk){toast('Chưa có mốc trước để lấy mô tả');return}
     const src=S.obs[pk];['ythuc','hohap','fio2','vanmach','tinhchat','cannang'].forEach(f=>{if(has(src[f]))S.obs[S.sel]={...(S.obs[S.sel]||{k:S.sel}),[f]:src[f]}});
     {const k=S.sel;const o=S.obs[k];stampObs(o,{});o.at=Date.now();const pid=S.cur;later('obs'+pid+k,()=>store.saveObs(pid,k,S.obs[k]))}selectKey(S.sel);toast('Đã lấy mô tả từ mốc '+hhmm(pk));return}
   if(act==='calcra'){const k=S.sel;const o={...(S.obs[k]||{k})};delete o.raTay;S.obs[k]=o;updateObsField(k,'nuoctieu',o.nuoctieu||'');const i=$('#o_ra');if(i)i.value=(S.obs[k]||{}).ra||'';return}
-  if(act==='clearobs'){const k=S.sel;if(!canEditRec((S.obs[k]||{}).byId)){toast('Chỉ người ghi hoặc Quản trị được xoá');return}modal(`<h3>Xoá số liệu mốc ${hLabel(k)}?</h3><p class="hint" style="margin:0">Toàn bộ số liệu đã ghi ở mốc này sẽ bị xoá.</p><div class="acts"><button class="btn" data-m="cancel">Giữ lại</button><button class="btn pri" data-m="ok">Xoá</button></div>`,()=>{
+  if(act==='clearobs'){const k=S.sel;if(!canEditRec((S.obs[k]||{}).byId)){toast('Chỉ người ghi hoặc Quản trị được xoá');return}
+    const xs=Array.isArray(S.info.extraSlots)?S.info.extraSlots:[];if(xs.includes(k)&&!hasData(S.obs[k])){if(!canAdmin()){toast('Mốc do Quản trị khai báo – chỉ Quản trị được xoá');return}setInfo('extraSlots',xs.filter(x=>x!==k));delete S.obs[k];S.sel=null;renderMain();toast('Đã xoá mốc '+hLabel(k));return}modal(`<h3>Xoá số liệu mốc ${hLabel(k)}?</h3><p class="hint" style="margin:0">Toàn bộ số liệu đã ghi ở mốc này sẽ bị xoá.</p><div class="acts"><button class="btn" data-m="cancel">Giữ lại</button><button class="btn pri" data-m="ok">Xoá</button></div>`,()=>{
       clearTimeout(deb['obs'+S.cur+k]);pendingKeys.delete('obs'+S.cur+k);delete S.obs[k];store.delObs(S.cur,k);S.sel=null;renderMain()});return}
   if(act==='addlab'){const k=dtVal('labTime');if(!k)return;if(S.labs[k]){toast('Đã có mốc này');return}S.labs[k]={k,v:{},fresh:true,byId:actorId(),by:actorName()};store.saveLab(S.cur,k,{k,v:{},byId:actorId(),by:actorName()});renderTab();return}
   if(act==='dellab'){const k=t.dataset.k;if(!canEditRec((S.labs[k]||{}).byId)){toast('Chỉ người tạo mốc hoặc Quản trị được xoá');return}modal(`<h3>Xoá mốc xét nghiệm ${hLabel(k)}?</h3><div class="acts"><button class="btn" data-m="cancel">Giữ lại</button><button class="btn pri" data-m="ok">Xoá</button></div>`,()=>{
@@ -1628,10 +1668,10 @@ document.addEventListener('click',e=>{
     const cur=String(S.info.vanDe||'').trim();setInfo('vanDe',(cur?cur+'\n':'')+s.map(x=>'- '+x).join('\n'));const ta=$('#i_vanDe');if(ta)ta.value=S.info.vanDe;toast('Đã thêm '+s.length+' gợi ý — chỉnh sửa lại cho sát thực tế');return}
   if(act==='delpt'){const name=S.info.hoTen||'';modal(`<h3>Xoá hồ sơ ${esc(name)}?</h3><p class="hint" style="margin:0">Toàn bộ số liệu theo dõi và xét nghiệm sẽ bị xoá vĩnh viễn cho cả kíp. Nên sao lưu trước.</p><div class="acts"><button class="btn" data-m="cancel">Giữ lại</button><button class="btn pri" data-m="ok">Xoá hồ sơ</button></div>`,async()=>{
       const pid=S.cur;if(unwatch)unwatch();unwatch=null;S.cur=null;S.info=null;delete S.patients[pid];renderList();renderMain();try{await store.delPatient(pid);toast('Đã xoá hồ sơ')}catch(e){toast('Xoá chưa hết, thử lại')}});return}
-  if(act==='planadd'||act==='planrem'||act==='planpre'||act==='plancfg'){if(S.ro)return;const sc=t.dataset.scope||'info';const P=getPlan(sc==='cfg'?S.cfg:S.info);
-    if(act==='planadd')P.days.push(P.rest);else if(act==='planrem'){if(P.days.length>1)P.days.pop()}
-    else if(act==='planpre'){const [d,r]=t.dataset.p.split(';');P.days=d.split(',').map(Number);P.rest=+r}
-    else{const C=getPlan(S.cfg);P.days=C.days.slice();P.rest=C.rest}
+  if(act==='planadd'||act==='planrem'||act==='planpre'||act==='plancfg'){if(S.ro||!canAdmin())return;const sc=t.dataset.scope||'info';const P=getPlan(sc==='cfg'?S.cfg:S.info);
+    if(act==='planadd'){P.days.push(P.rest);P.ends.push(P.ends[P.ends.length-1]+24)}else if(act==='planrem'){if(P.days.length>1){P.days.pop();P.ends.pop()}}
+    else if(act==='planpre'){const [d,r,e]=t.dataset.p.split(';');P.days=d.split(',').map(Number);P.rest=+r;P.ends=e?e.split(',').map(Number):[]}
+    else{const C=getPlan(S.cfg);P.days=C.days.slice();P.rest=C.rest;P.ends=C.ends.slice()}
     savePlan(sc,P);toast('Đã cập nhật lịch theo dõi');return}
   if(act==='resetth'){S.cfg.th=JSON.parse(JSON.stringify(TH_DEF));store.saveCfg(S.cfg);renderTab();toast('Đã khôi phục ngưỡng mặc định');return}
 });
@@ -1664,8 +1704,10 @@ document.addEventListener('change',e=>{
   if(t.dataset.staff){if(!canAdmin())return;const id=t.dataset.staff,v=t.value;const st=staffList();
     if(v!=='admin'&&st.find(x=>x.id===id).role==='admin'&&st.filter(x=>x.role==='admin').length===1){toast('Phải còn ít nhất một Quản trị');t.value='admin';return}
     saveStaff(st.map(x=>x.id===id?{...x,role:v}:x));return}
+  if(t.dataset.planend){if(S.ro||!canAdmin())return;const sc=t.dataset.planend;const P=getPlan(sc==='cfg'?S.cfg:S.info);const i=+t.dataset.seg;const st=i?P.ends[i-1]:0;let v=Math.round(+t.value);if(!(v>st)){toast('Phải lớn hơn giờ '+st);t.value=P.ends[i];return}
+    P.ends[i]=v;for(let j=i+1;j<P.ends.length;j++)if(P.ends[j]<=P.ends[j-1])P.ends[j]=P.ends[j-1]+(P.ends[j]-(j?0:0)>0?24:24);savePlan(sc,P);toast('Đã cập nhật: giai đoạn '+(i+1)+' đến giờ thứ '+v);return}
   if(t.dataset.plan==='cfg'&&!canAdmin())return;
-  if(t.dataset.plan){if(S.ro)return;const sc=t.dataset.plan;const P=getPlan(sc==='cfg'?S.cfg:S.info);if(t.dataset.day==='rest')P.rest=+t.value;else P.days[+t.dataset.day]=+t.value;savePlan(sc,P);return}
+  if(t.dataset.plan){if(S.ro||!canAdmin()){toast('Chỉ Quản trị được đổi lịch theo dõi');renderTab();return}const sc=t.dataset.plan;const P=getPlan(sc==='cfg'?S.cfg:S.info);const cur=t.dataset.day==='rest'?P.rest:P.days[+t.dataset.day];const v=t.value==='custom'?'h:'+hoursOf(cur).join(','):t.value.startsWith('h:')?t.value:+t.value;if(t.dataset.day==='rest')P.rest=v;else P.days[+t.dataset.day]=v;savePlan(sc,P);return}
   const dw=t.closest&&t.closest('.dt[data-info]');
   if(dw){if(S.ro)return;const v=dtVal('i_'+dw.dataset.info);if(v){setInfo(dw.dataset.info,v);renderList();const sc=window.scrollY;renderMain();window.scrollTo(0,sc)}return}
   if(t.dataset.rep){S.rep[t.dataset.rep]=t.type==='checkbox'?t.checked:t.value;const pp=$('#paper');if(pp){pp.innerHTML=paperHtml();fitPaper()}return}
