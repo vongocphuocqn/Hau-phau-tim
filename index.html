@@ -122,6 +122,7 @@ h1,h2,h3{text-wrap:balance;margin:0}
 .hml{display:flex;flex-wrap:wrap;gap:4px 10px;font-size:12px}.hm{white-space:nowrap}
 .planbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between;background:var(--panel-2);border:1px solid var(--line);border-radius:10px;padding:8px 12px;margin-bottom:10px;font-size:13px}
 .rbar{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:0 0 8px}.rlab{display:flex;align-items:center;gap:4px;font-size:12px;color:var(--muted)}.rlab input{height:32px;width:auto;padding:2px 6px;font-size:13px}
+.savebar2{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-top:10px}
 .tl-tools{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px;align-items:center}
 .tl-daysel{display:flex;align-items:center;gap:6px;margin-left:auto;font-size:12px;color:var(--muted);font-weight:600}.tl-daysel select{height:32px;padding:2px 8px;font-size:13px;width:auto}
 .tl{border:1px solid var(--line);border-radius:var(--r);max-height:640px;overflow:auto;background:var(--panel)}
@@ -292,7 +293,7 @@ fieldset{border:0;margin:0;padding:0;min-width:0}
 <header class="top">
   <div class="brand">
     <svg width="34" height="34" viewBox="0 0 34 34" aria-hidden="true"><rect width="34" height="34" rx="8" fill="var(--accent)"/><path d="M4 18h6l3-7 4 13 3-9 2 3h8" fill="none" stroke="var(--on-accent)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-    <div><h1>Theo dõi Hậu phẫu Tim</h1><small>Khoa Gây mê Hồi sức · BVĐK Trung tâm tỉnh Gia Lai · <b>bản 25/10-N</b></small></div>
+    <div><h1>Theo dõi Hậu phẫu Tim</h1><small>Khoa Gây mê Hồi sức · BVĐK Trung tâm tỉnh Gia Lai · <b>bản 26/10-A</b></small></div>
   </div>
   <div class="sp"></div>
   <button class="sync" id="sync" data-act="conn" title="Kết nối dữ liệu chung"><i></i><span>Đang kết nối…</span></button>
@@ -791,9 +792,11 @@ function planHtml(scope){
      <button class="btn sm ghost" data-act="planpre" data-scope="${scope}" data-p="1,2;3;28,36">Mỗi giờ đến giờ 28 → mỗi 2 giờ đến giờ 36 → mỗi 3 giờ</button>
      <button class="btn sm ghost" data-act="planpre" data-scope="${scope}" data-p="1,2;3;48,72">Nặng: mỗi giờ đến giờ 48 → mỗi 2 giờ đến giờ 72 → mỗi 3 giờ</button>
      ${scope==='info'?'<button class="btn sm" data-act="plancfg">Áp dụng lịch mặc định của khoa</button>':'<button class="btn sm pri" data-act="planall">Áp dụng cho bệnh nhân đang theo dõi</button>'}</div>
+    ${ed?`<div class="savebar2"><button class="btn pri" data-act="plansave" data-scope="${scope}">💾 Lưu lịch theo dõi</button><span class="hint" id="planSt_${scope}">${S['planSt_'+scope]||'Lịch tự lưu khi chọn. Bấm Lưu để chắc chắn đã ghi.'}</span></div>`:''}
     <p class="hint" style="margin:6px 0 0">Giờ thứ tính từ lúc hồi sức tiếp nhận (giờ 0 = giờ về hồi sức, làm tròn lên giờ chẵn). Quản trị gõ “đến giờ thứ” cho từng giai đoạn (VD 24, 28, 36…) và chọn cách ghi: mỗi 1/2/3… giờ tính từ đầu giai đoạn, hoặc giờ cố định trong ngày (2–5 lần/ngày, tự chọn giờ). Số liệu đã ghi không bị mất khi đổi lịch.</p>`;
 }
 function savePlan(scope,P){
+  S['planSt_'+scope]='Có thay đổi – đang lưu…';setTimeout(()=>{S['planSt_'+scope]='✓ Đã lưu lúc '+hhmm(toKey(new Date()));const e=document.getElementById('planSt_'+scope);if(e)e.textContent=S['planSt_'+scope]},400);
   P.ends=normEnds(P.days,P.ends);
   if(scope==='cfg'){S.cfg={...S.cfg,plan:P.days,planRest:P.rest,planEnd:P.ends};later('cfg',()=>store.saveCfg(S.cfg),200);renderTab();return}
   S.info={...S.info,plan:P.days,planRest:P.rest,planEnd:P.ends};const pid=S.cur;S.patients[pid]=S.info;later('info'+pid,()=>store.saveInfo(pid,S.info),200);
@@ -1602,6 +1605,10 @@ document.addEventListener('click',e=>{
   if(S.ro&&['quick','suggest','planadd','planrem','planpre','plancfg','new','demo'].includes(act))return;
   if(!canAdmin()&&['import','backup','delpt','settings','new','quick','demo'].includes(act))return;
   if(act==='saveinfo')return saveInfoNow();
+  if(act==='plansave'){if(!canAdmin())return;const sc=t.dataset.scope;const now='✓ Đã lưu lúc '+hhmm(toKey(new Date()));
+    if(sc==='cfg'){clearTimeout(deb['cfg']);pendingKeys.delete('cfg');store.saveCfg(S.cfg);toast('Đã lưu lịch mặc định của khoa')}
+    else{const pid=S.cur;clearTimeout(deb['info'+pid]);pendingKeys.delete('info'+pid);store.saveInfo(pid,S.info);toast('Đã lưu lịch theo dõi cho '+(S.info.hoTen||'bệnh nhân'))}
+    S['planSt_'+sc]=now;const e=document.getElementById('planSt_'+sc);if(e)e.textContent=now;return}
   if(act==='editplan'){S.tab='thongtin';renderMain();setTimeout(()=>{const b=$('#planBox');if(b)b.scrollIntoView({block:'start',behavior:'smooth'})},50);return}
   if(act==='planall'){if(!canAdmin())return;const C=getPlan(S.cfg);const ids=Object.keys(S.patients).filter(id=>{const i=S.patients[id]||{};return !i.trangThai||i.trangThai==='dang'});
     modal(`<h3>Áp dụng lịch mặc định cho bệnh nhân đang theo dõi?</h3><p class="hint" style="margin:0">${ids.length} bệnh nhân đang theo dõi sẽ dùng lịch: <b>${esc(planText(S.cfg))}</b>. Số liệu đã ghi không bị mất. Mốc khai báo thêm vẫn giữ.</p><div class="acts"><button class="btn" data-m="cancel">Huỷ</button><button class="btn pri" data-m="ok">Áp dụng</button></div>`,()=>{
