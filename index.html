@@ -293,13 +293,13 @@ fieldset{border:0;margin:0;padding:0;min-width:0}
 <header class="top">
   <div class="brand">
     <svg width="34" height="34" viewBox="0 0 34 34" aria-hidden="true"><rect width="34" height="34" rx="8" fill="var(--accent)"/><path d="M4 18h6l3-7 4 13 3-9 2 3h8" fill="none" stroke="var(--on-accent)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-    <div><h1>Theo dõi Hậu phẫu Tim</h1><small>Khoa Gây mê Hồi sức · BVĐK Trung tâm tỉnh Gia Lai · <b>bản 26/10-C</b></small></div>
+    <div><h1>Theo dõi Hậu phẫu Tim</h1><small>Khoa Gây mê Hồi sức · BVĐK Trung tâm tỉnh Gia Lai · <b>bản 26/10-D</b></small></div>
   </div>
   <div class="sp"></div>
   <button class="sync" id="sync" data-act="conn" title="Kết nối dữ liệu chung"><i></i><span>Đang kết nối…</span></button>
   <span id="who"></span>
   <button class="btn" data-act="quick" id="btnQuick">Xem nhanh</button>
-  <button class="btn" data-act="import" id="btnImp" title="Nạp dữ liệu từ file sao lưu (.json)">Nhập dữ liệu</button>
+  <button class="btn" data-act="import" id="btnImp" title="Tải dữ liệu từ file báo cáo Word (.docx) hoặc file sao lưu (.json)">Nhập dữ liệu</button>
   <button class="btn pri" id="btnNew" data-act="new">+ Bệnh nhân mới</button>
 </header>
 
@@ -1218,7 +1218,7 @@ function reportTabHtml(){
    <label class="fld"><span>Mốc trong giai đoạn theo dõi mỗi giờ</span><select class="inp" id="r_step" data-rep="step">${[[1,'Tất cả các giờ'],[2,'Mỗi 2 giờ'],[3,'Mỗi 3 giờ'],[4,'Mỗi 4 giờ']].map(([v,l])=>`<option value="${v}" ${+S.rep.step===v?'selected':''}>${l}</option>`).join('')}</select></label>
    <label class="fld" style="flex-direction:row;align-items:center;gap:6px;padding-bottom:6px"><input type="checkbox" id="r_only" data-rep="only" ${S.rep.only?'checked':''}> <span style="text-transform:none;font-size:13px;color:var(--ink);font-weight:500;letter-spacing:0">Chỉ mốc đã có số liệu</span></label>
    <span style="flex:1"></span>
-   <button class="btn pri" data-act="export">Xuất Word (.docx)</button><button class="btn" data-act="xlsx">Xuất Excel (.xlsx)</button><button class="btn" data-act="pdf">Xuất PDF</button>${canAdmin()?'<button class="btn" data-act="backup">Sao lưu (.json)</button><button class="btn" data-act="import">Nhập dữ liệu (.json)</button>':''}</div>
+   <button class="btn pri" data-act="export">Xuất Word (.docx)</button><button class="btn" data-act="xlsx">Xuất Excel (.xlsx)</button><button class="btn" data-act="pdf">Xuất PDF</button>${canAdmin()?'<button class="btn" data-act="backup">Sao lưu (.json)</button><button class="btn" data-act="import">Tải dữ liệu từ file Word / .json</button>':''}</div>
    <div class="paper-wrap"><div class="paper" id="paper">${paperHtml()}</div></div>`;
 }
 function paperHtml(){
@@ -1574,8 +1574,108 @@ function mergeInto(d){const pid=S.cur;let nO=0,nL=0,nC=0;
   if(d.info&&d.info.labNotes){inf.labNotes={...(d.info.labNotes||{}),...(S.info.labNotes||{})}}
   S.info=inf;S.patients[pid]=inf;store.saveInfo(pid,inf);renderAll();
   toast(`Đã gộp: ${nO} mốc theo dõi, ${nL} mốc xét nghiệm${nC?', '+nC+' chỉ định':''}${nI?', '+nI+' trường thông tin':''}. Mốc đã có số liệu được giữ nguyên.`)}
-function importFile(){if(S.ro){needLogin();return}const i=document.createElement('input');i.type='file';i.accept='.json,application/json';i.style.display='none';document.body.appendChild(i);
-  i.onchange=()=>{const f=i.files[0];i.remove();if(!f)return;const rd=new FileReader();rd.onload=()=>{let d;try{d=JSON.parse(rd.result);if(!d.info)throw 0}catch(e){toast('File không đúng định dạng dữ liệu của ứng dụng');return}
+/* ============ NHẬP DỮ LIỆU TỪ FILE BÁO CÁO WORD (.docx) ============ */
+const nrm=s=>String(s||'').normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/đ/g,'d').replace(/Đ/g,'D').toLowerCase().replace(/\s+/g,' ').trim();
+const numV=s=>{const m=String(s||'').replace(/,/g,'.').match(/-?\d+(\.\d+)?/);return m?m[0]:''};
+async function readDocxTables(file){
+  if(!window.JSZip)await loadScript('https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js');
+  const zip=await JSZip.loadAsync(file);const xml=await zip.file('word/document.xml').async('string');
+  const doc=new DOMParser().parseFromString(xml,'application/xml');const W='http://schemas.openxmlformats.org/wordprocessingml/2006/main';
+  const txt=el=>(el.localName==='p'?[el]:[...el.getElementsByTagNameNS(W,'p')]).map(p=>[...p.getElementsByTagNameNS(W,'t')].map(t=>t.textContent).join('')).join('\n');
+  const tables=[...doc.getElementsByTagNameNS(W,'tbl')].filter(t=>!t.parentNode||t.parentNode.localName!=='tc').map(t=>[...t.childNodes].filter(r=>r.localName==='tr').map(r=>[...r.childNodes].filter(c=>c.localName==='tc').map(txt)));
+  const body=[...doc.getElementsByTagNameNS(W,'body')[0].childNodes].filter(n=>n.localName==='p').map(txt);
+  return {tables,body};
+}
+function parseColTime(s,year){
+  const t=nrm(s).replace(/\s+/g,'');const m=t.match(/(\d{1,2})h(\d{2})?(\d{1,2})\/(\d{1,2})/);if(!m)return '';
+  let h=+m[1],mi=+(m[2]||0),d=+m[3],mo=+m[4];if(h>24||mi>59||d<1||d>31||mo<1||mo>12)return '';
+  const dt=new Date(year,mo-1,d,h===24?0:h,mi);if(h===24)dt.setDate(dt.getDate()+1);return toKey(dt)}
+function cleanResp(s){let x=String(s).replace(/^\s*th[ởo]\s*:?\s*/i,m=>/oxy|o2/i.test(s)?'':m).trim();x=x.replace(/(\d)\s*l\s*\/\s*p(h)?\b/gi,'$1 l/ph').replace(/\s+/g,' ');return x?x[0].toUpperCase()+x.slice(1):''}
+function parseObsCell(lab,cell,o,notes){
+  const L=nrm(lab),raw=String(cell||'').trim();if(!raw)return;const lines=raw.split('\n').map(x=>x.trim()).filter(Boolean);
+  if(L.startsWith('y thuc')){const t=lines.join(', ').replace(/\s*,\s*/g,', ');const hit=YTHUC.find(x=>nrm(x).replace(/\W/g,'')===nrm(t).replace(/\W/g,''));if(hit)o.ythuc=hit;else o.lamsang=t;return}
+  if(L.startsWith('ho hap')){const rest=[];lines.forEach(l=>{let x=l;const nt=x.match(/NT\s*:?\s*(\d+)/i);if(nt){o.nt=nt[1];x=x.replace(nt[0],'')}else x=x.replace(/NT\s*:?\s*TM\b/i,'');
+      const sp=x.match(/SPO2\s*:?\s*(\d+)\s*%?/i);if(sp){o.spo2=sp[1];x=x.replace(sp[0],'')}const fi=x.match(/FIO2\s*:?\s*(\d+)\s*%?/i);if(fi){o.fio2=fi[1];x=x.replace(fi[0],'')}
+      x=x.replace(/^[\s,.;:]+|[\s,.;:]+$/g,'');if(x)rest.push(cleanResp(x))});if(rest.length)o.hohap=rest.join('; ');return}
+  if(L.startsWith('huyet dong')){const s=lines.join(' ');const m=s.match(/M\s*:?\s*(\d+)/);if(m)o.m=m[1];const ha=s.match(/HA\s*:?\s*(\d+)\s*\/\s*(\d+)/i);if(ha){o.hatt=ha[1];o.hatr=ha[2]}const cv=s.match(/CVP\s*:?\s*(\d+)/i);if(cv)o.cvp=cv[1];return}
+  if(L.startsWith('nhiet do')){const v=numV(raw);if(v)o.t=v;return}
+  if(L.startsWith('nuoc tieu')){const m=nrm(raw).replace(/\s+/g,'').match(/(\d+)(ml)?(\/(\d*)h)?/);if(!m)return;const amt=+m[1],hrs=m[3]?(+m[4]||1):1;
+    if(hrs<=4){o.nuoctieu=String(Math.round(amt/hrs));if(hrs>1)notes.push(`Nước tiểu ${amt} ml/${hrs} giờ`)}else notes.push(`Nước tiểu ${amt} ml/${hrs} giờ`);return}
+  if(L.startsWith('dan luu')){const f=nrm(lines[0]).replace(/\s+/g,'');const m=f.match(/^(\d+)(ml)?(\/(\d*)(h|gio))?/);if(m){const hrs=m[3]?(+m[4]||1):1;if(hrs<=4)o.danluu=String(Math.round(+m[1]/hrs));else notes.push(`Dẫn lưu ${+m[1]} ml/${hrs} giờ`)}
+    lines.slice(m?1:0).forEach(l=>{const x=l.replace(/^dịch\s*:?\s*/i,'').trim();if(x)o.tinhchat=(o.tinhchat?o.tinhchat+'; ':'')+x});return}
+  if(L.startsWith('tong dich vao')||L.startsWith('tong dich ra')){const f=nrm(raw).replace(/\s+/g,'');const m=f.match(/(\d+)(ml)?(\/(\d+)h)?/);if(!m)return;const ra=L.includes(' ra');
+    if(ra){o.ra=m[1];o.raTay=true}else o.vao=m[1];if(m[4])notes.push(`Dịch ${ra?'ra':'vào'} ${m[1]} ml/${m[4]} giờ`);return}
+  if(L.startsWith('can nang')){const v=numV(raw);if(v)o.cannang=v;return}
+  if(L.startsWith('duong huyet')){const v=numV(raw);if(v)o.dh=v;return}
+  if(L.startsWith('khac')){o.khac=lines.join('; ');return}
+}
+function labKeyOf(label){const L=nrm(label).replace(/[^a-z0-9]/g,'');
+  const map=[['bc','bc'],['neut','neut'],['rbc','rbc'],['hb','hb'],['hct','hct'],['tc','tc'],['crp','crp'],['ure','ure'],['cre','cre'],['got','got'],['gpt','gpt'],['ggt','ggt'],['aptt','aptt'],['pt','pt'],['inr','inr'],['lact','lac'],['na','na'],['khimau','khimau'],['k','k'],['glu','glu'],['mentim','mentim'],['ecg','ecg'],['sieuam','sieuam']];
+  const hit=map.find(([p])=>L.startsWith(p)&&!(p==='pt'&&L.startsWith('ptt')));return hit?hit[1]:null}
+function parseReportDocx({tables,body}){
+  const year=(S.info&&S.info.veHoiSuc?+S.info.veHoiSuc.slice(0,4):new Date().getFullYear());
+  const obs={},labs={},skipped=[];const info={};
+  const LBL=[['ho ten','hoTen'],['chan doan truoc phau thuat','chanDoanTruoc'],['chan doan sau phau thuat','chanDoanSau'],['phuong phap phau thuat','phuongPhap'],['phau thuat ngay','ngayPT'],['dia chi','diaChi'],['nghe nghiep','ngheNghiep']];
+  body.concat(tables.flat(2)).forEach(line=>String(line).split('\n').forEach(l0=>{const l=l0.normalize('NFC');const ci=l.indexOf(':');if(ci<0)return;const key=nrm(l.slice(0,ci));const hit=LBL.find(([a])=>key===a);if(!hit)return;const v=l.slice(ci+1).trim();if(!v)return;const f=hit[1];
+    if(f==='hoTen'){const n=v.split(';')[0].trim();if(n)info.hoTen=n.toUpperCase();const g=v.match(/Gi\S*i\s*:\s*(\S+)/i);if(g)info.gioi=nrm(g[1]).startsWith('nu')?'Nữ':'Nam'}
+    else if(f==='ngayPT'){const d=v.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);if(d)info.ngayPT=`${d[3]}-${pad(+d[2])}-${pad(+d[1])}`}
+    else if(f==='diaChi')info.diaChi=v.replace(/\s*-+\s*/g,' - ').replace(/\s+/g,' ');else info[f]=v}));
+  const now=Date.now()+30*6e4;
+  for(const t of tables){if(!t.length)continue;const h0=nrm(t[0][0]);
+    if(h0.startsWith('thong so')){const cols=t[0].slice(1).map(c=>parseColTime(c,year));
+      cols.forEach((k,ci)=>{if(!k)return;const o={},notes=[];t.slice(1).forEach(r=>parseObsCell(r[0],r[ci+1],o,notes));
+        if(notes.length)o.lamsang=[o.lamsang,...notes].filter(Boolean).map(x=>String(x).replace(/[\s.;,]+$/,'')).join('. ');if(!hasData(o))return;
+        if(fromKey(k).getTime()>now){skipped.push({k,why:'chưa đến giờ (có thể chép nhầm)',o});return}
+        obs[k]={...(obs[k]||{}),...o,k}})}
+    else if(h0==='xn'){const cols=t[0].slice(1).map(c=>parseColTime(c,year));
+      t.slice(1).forEach(r=>{const a=labKeyOf(r[0]);if(!a)return;cols.forEach((k,ci)=>{if(!k)return;const v=String(r[ci+1]||'').trim();if(!v)return;const an=ANALYTES.find(x=>x.k===a);const val=an&&an.text?v:numV(v);if(!val)return;(labs[k]=labs[k]||{k,v:{}}).v[a]=val})})}}
+  return {obs,labs,skipped,info};
+}
+function obsSum(o){return [o.m&&'M '+o.m,(o.hatt||o.hatr)&&'HA '+(o.hatt||'?')+'/'+(o.hatr||'?'),o.spo2&&'SpO₂ '+o.spo2,o.t&&'T '+o.t,o.nuoctieu&&'NT '+o.nuoctieu,has(o.danluu)&&'DL '+o.danluu,o.vao&&'Vào '+o.vao,o.ra&&'Ra '+o.ra].filter(Boolean).join(' · ')||esc((o.lamsang||o.ythuc||o.hohap||'').slice(0,40))}
+const OBS_CMP=['ythuc','lamsang','hohap','nt','spo2','fio2','m','hatt','hatr','cvp','t','nuoctieu','danluu','tinhchat','vao','ra','cannang','dh'];
+function obsDiff(a,b){const c=x=>nrm(x).replace(/[^a-z0-9]/g,'');return OBS_CMP.filter(f=>has(b[f])&&c(a[f]??'')!==c(b[f]))}
+async function importDocx(file){
+  if(!canAdmin()){toast('Chỉ Quản trị được nhập dữ liệu từ file');return}
+  let P;try{P=parseReportDocx(await readDocxTables(file))}catch(e){console.error(e);toast('Không đọc được file Word. Kiểm tra lại file báo cáo (.docx).');return}
+  const nO=Object.keys(P.obs).length,nL=Object.keys(P.labs).length;
+  if(!nO&&!nL){toast('Không tìm thấy bảng diễn biến hoặc xét nghiệm theo mẫu báo cáo trong file');return}
+  if(!S.cur){const inf={hoTen:P.info.hoTen||'(Chưa có tên)',...P.info,trangThai:'dang',taoLuc:Date.now()};const k0=Object.keys(P.obs).sort()[0];if(k0)inf.veHoiSuc=k0;if(!inf.ngayPT&&k0)inf.ngayPT=k0.slice(0,10);
+    const C=getPlan(S.cfg);inf.plan=C.days;inf.planRest=C.rest;inf.planEnd=C.ends;const pid='p'+uid();S.patients[pid]=inf;await store.importPatient(pid,{info:inf,obs:{},labs:{},orders:{}});S.cur=pid;openPatient(pid);
+    toast('Đã tạo hồ sơ '+inf.hoTen+' từ file – kiểm tra giờ về hồi sức ở tab Thông tin')}
+  const nameF=P.info.hoTen||'',nameC=S.info.hoTen||'';const mism=nameF&&nameC&&nrm(nameF)!==nrm(nameC);
+  const rows=Object.keys(P.obs).sort().map(k=>{const cur=S.obs[k],o=P.obs[k];let st,cls;
+    if(!hasData(cur)){st='Mới';cls='ok'}else{const d=obsDiff(cur,o);if(!d.length){st='Trùng – đã có';cls='extra'}else{st='Khác: '+d.length+' trường';cls='warn'}}
+    return {k,o,st,cls,def:cls==='ok'}});
+  const lrows=Object.keys(P.labs).sort().map(k=>{const cur=(S.labs[k]||{}).v||{},v=P.labs[k].v;const nw=Object.keys(v).filter(a=>!has(cur[a])).length,df=Object.keys(v).filter(a=>has(cur[a])&&String(cur[a])!==String(v[a])).length;
+    return {k,v,st:nw?`${nw} chỉ số mới`:df?`Khác ${df} chỉ số`:'Trùng – đã có',cls:nw?'ok':df?'warn':'extra',def:nw>0}});
+  const tr=(r,i,kind)=>`<tr><td><input type="checkbox" class="dxck" data-kind="${kind}" data-i="${i}" ${r.def?'checked':''}></td><td class="num" style="white-space:nowrap">N${dayN(r.k,S.info)} · ${hLabel(r.k)}</td><td style="font-size:12px">${kind==='o'?obsSum(r.o):Object.entries(r.v).map(([a,x])=>a.toUpperCase()+' '+esc(x)).join(' · ')}</td><td><span class="badge ${r.cls}" style="white-space:nowrap">${r.st}</span></td></tr>`;
+  modal(`<h3>Tải dữ liệu từ file báo cáo Word</h3>
+    <p class="hint" style="margin:0">File: <b>${esc(file.name)}</b>${nameF?` · Bệnh nhân trong file: <b>${esc(nameF)}</b>`:''} · Gộp vào hồ sơ: <b>${esc(nameC)}</b></p>
+    ${mism?`<div class="banner warn">Tên trong file khác hồ sơ đang mở. Kiểm tra lại trước khi nhập.</div>`:''}
+    <div style="max-height:46vh;overflow:auto;border:1px solid var(--line);border-radius:8px"><table class="th" style="width:100%"><tr><th></th><th>Mốc</th><th>Số liệu trong file</th><th>So với app</th></tr>
+      ${rows.length?`<tr><td colspan="4"><b>Diễn biến (${rows.length} mốc)</b></td></tr>`+rows.map((r,i)=>tr(r,i,'o')).join(''):''}
+      ${lrows.length?`<tr><td colspan="4"><b>Xét nghiệm (${lrows.length} mốc)</b></td></tr>`+lrows.map((r,i)=>tr(r,i,'l')).join(''):''}
+      ${P.skipped.map(s=>`<tr><td></td><td class="num">${hLabel(s.k)}</td><td style="font-size:12px">${obsSum(s.o)}</td><td><span class="badge late">Bỏ qua: ${s.why}</span></td></tr>`).join('')}</table></div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px"><button type="button" class="btn sm ghost" id="dxNew">Chọn mốc mới</button><button type="button" class="btn sm ghost" id="dxAll">Chọn tất cả</button><button type="button" class="btn sm ghost" id="dxNone">Bỏ chọn</button></div>
+    <label class="fld" style="flex-direction:row;align-items:center;gap:6px"><input type="checkbox" id="dxOver"> <span style="text-transform:none;letter-spacing:0;font-size:13px;color:var(--ink)">Ghi đè số liệu đang có bằng số liệu trong file (mốc “Khác”)</span></label>
+    <p class="hint" style="margin:0">Mặc định chỉ thêm mốc mới và điền ô còn trống; số liệu nhân viên đã nhập được giữ nguyên.</p>
+    <div class="acts"><button class="btn" data-m="cancel">Huỷ</button><button class="btn pri" data-m="ok">Nhập các mốc đã chọn</button></div>`,r=>{
+      const over=r.querySelector('#dxOver').checked;const pid=S.cur;let a=0,b=0;
+      r.querySelectorAll('.dxck:checked').forEach(c=>{const i=+c.dataset.i;
+        if(c.dataset.kind==='o'){const {k,o}=rows[i];const cur=S.obs[k]||{};let n;
+          if(hasData(cur)){n={...cur};OBS_CMP.concat(['raTay','khac']).forEach(f=>{if(has(o[f])&&(over||!has(cur[f])))n[f]=o[f]});n.suaBoi=actorName()}
+          else n={...o,k,by:'Nhập từ file báo cáo',byId:''};n.at=Date.now();S.obs[k]=n;store.saveObs(pid,k,n);a++}
+        else{const {k,v}=lrows[i];const L=S.labs[k]||{k,v:{},byId:'',by:'Nhập từ file báo cáo'};const nv={...(L.v||{})};Object.entries(v).forEach(([x,y])=>{if(over||!has(nv[x]))nv[x]=y});
+          S.labs[k]={...L,v:nv};store.saveLab(pid,k,{k,v:nv,byId:L.byId||'',by:L.by||'Nhập từ file báo cáo'});b++}});
+      const inf={...S.info};let nI=0;Object.entries(P.info).forEach(([f,v])=>{if(f!=='hoTen'&&!has(inf[f])&&has(v)){inf[f]=v;nI++}});if(nI){S.info=inf;S.patients[pid]=inf;store.saveInfo(pid,inf)}
+      renderAll();toast(`Đã nhập ${a} mốc diễn biến, ${b} mốc xét nghiệm${nI?', '+nI+' trường thông tin':''} từ file Word`)});
+  const R=$('#modalRoot');{const md=R.querySelector('.modal');if(md){md.style.maxWidth='860px';md.style.width='calc(100vw - 24px)'}}const cks=()=>[...R.querySelectorAll('.dxck')];
+  R.querySelector('#dxAll').onclick=()=>cks().forEach(c=>c.checked=true);R.querySelector('#dxNone').onclick=()=>cks().forEach(c=>c.checked=false);
+  R.querySelector('#dxNew').onclick=()=>cks().forEach(c=>{const L=c.dataset.kind==='o'?rows:lrows;c.checked=L[+c.dataset.i].cls==='ok'});
+  R.querySelector('#dxOver').onchange=e=>{if(e.target.checked)cks().forEach(c=>{const L=c.dataset.kind==='o'?rows:lrows;if(L[+c.dataset.i].cls==='warn')c.checked=true})};
+}
+function importFile(){if(S.ro){needLogin();return}const i=document.createElement('input');i.type='file';i.accept='.json,application/json,.docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document';i.style.display='none';document.body.appendChild(i);
+  i.onchange=()=>{const f=i.files[0];i.remove();if(!f)return;if(/\.docx$/i.test(f.name)){importDocx(f);return}const rd=new FileReader();rd.onload=()=>{let d;try{d=JSON.parse(rd.result);if(!d.info)throw 0}catch(e){toast('File không đúng định dạng dữ liệu của ứng dụng');return}
     if(!S.cur||!S.info){importAsNew(d);return}
     const nObs=Object.values(d.obs||{}).filter(hasData).length,nLab=Object.keys(d.labs||{}).length;
     modal(`<h3>Nhập dữ liệu: ${esc(d.info.hoTen||'(không tên)')}</h3><p class="hint" style="margin:0">File có ${nObs} mốc theo dõi, ${nLab} mốc xét nghiệm.</p>
