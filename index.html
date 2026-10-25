@@ -274,7 +274,7 @@ fieldset{border:0;margin:0;padding:0;min-width:0}
     <div><h1>Theo dõi Hậu phẫu Tim</h1><small>Khoa Gây mê Hồi sức · BVĐK Trung tâm tỉnh Gia Lai</small></div>
   </div>
   <div class="sp"></div>
-  <span class="sync" id="sync"><i></i><span>Đang kết nối…</span></span>
+  <button class="sync" id="sync" data-act="conn" title="Kết nối dữ liệu chung"><i></i><span>Đang kết nối…</span></button>
   <span id="who"></span>
   <button class="btn" data-act="quick" id="btnQuick">Xem nhanh</button>
   <button class="btn" data-act="import" id="btnImp" title="Nạp dữ liệu từ file sao lưu (.json)">Nhập dữ liệu</button>
@@ -514,6 +514,81 @@ function makeDbStore(db){
     }
   };
 }
+/* ============ ĐỒNG BỘ GOOGLE SHEET (bản chạy ngoài Claude, ví dụ GitHub) ============ */
+function syncConf(){const c=lsGet('hpt-sync',null);return c&&c.u&&c.k?c:null}
+function b64e(o){return btoa(unescape(encodeURIComponent(JSON.stringify(o)))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'')}
+function b64d(t){t=t.replace(/-/g,'+').replace(/_/g,'/');while(t.length%4)t+='=';return JSON.parse(decodeURIComponent(escape(atob(t))))}
+function makeSheetStore(url,key){
+  const CK='hpt-sheet-cache';let docs={},ver=0;const c0=lsGet(CK,null);if(c0&&c0.u===url){docs=c0.docs||{};ver=c0.t||0}
+  let outbox=lsGet('hpt-outbox',[]);let flushing=false,ftimer=null,lastErr=null;
+  const L={pl:[],cfg:[],pw:{}};
+  const persist=()=>lsSet(CK,{u:url,docs,t:ver});
+  const pats=()=>{const m={};for(const[p,d]of Object.entries(docs)){const a=p.split('/');if(a.length===2&&a[0]==='patients')m[a[1]]=d}return m};
+  const pdata=pid=>{const pre='patients/'+pid+'/',out={info:docs['patients/'+pid]||null,obs:{},labs:{},orders:{}};
+    for(const[p,d]of Object.entries(docs)){if(!p.startsWith(pre))continue;const a=p.slice(pre.length).split('/');if(a.length!==2||!d)continue;
+      if(a[0]==='obs'&&d.k)out.obs[d.k]=d;else if(a[0]==='labs'&&d.k)out.labs[d.k]=d;else if(a[0]==='orders'&&d.id)out.orders[d.id]=d}return out};
+  const fireAll=()=>{const m=pats();L.pl.forEach(f=>f(m));L.cfg.forEach(f=>f(docs['config/main']||null));for(const pid of Object.keys(L.pw))L.pw[pid].forEach(f=>f(pdata(pid)))};
+  const status=()=>{if(lastErr)setSync('err',lastErr);else if(outbox.length)setSync('local','Đang gửi '+outbox.length+' thay đổi…');else setSync('ok','Dùng chung (Google Sheet)')};
+  async function pull(full){
+    const r=await fetch(url+(url.includes('?')?'&':'?')+'key='+encodeURIComponent(key)+'&since='+(full?0:ver),{cache:'no-store'});
+    const j=await r.json();if(!j.ok)throw new Error(j.error==='sai_ma'?'Sai mã khoa':'Máy chủ báo lỗi');
+    let changed=full;if(full){const keep={};for(const o of outbox)keep[o.path]=docs[o.path];docs={};Object.assign(docs,keep)}
+    const pend=new Set(outbox.map(o=>o.path));
+    for(const[p,d]of Object.entries(j.docs||{})){if(pend.has(p))continue;if(d===null){if(p in docs){delete docs[p];changed=true}}else if(JSON.stringify(docs[p])!==JSON.stringify(d)){docs[p]=d;changed=true}}
+    ver=Math.max(ver,j.t||0);persist();lastErr=null;status();if(changed)fireAll();
+  }
+  async function flush(){if(flushing||!outbox.length)return;flushing=true;const batch=outbox.slice(0,40);
+    try{const r=await fetch(url,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({key,ops:batch})});const j=await r.json();
+      if(!j.ok)throw new Error(j.error==='sai_ma'?'Sai mã khoa':'Lỗi ghi');
+      outbox=outbox.filter(o=>!batch.includes(o));lsSet('hpt-outbox',outbox);lastErr=null}
+    catch(e){lastErr='Chưa gửi được – đang thử lại';setTimeout(flush,15000)}
+    finally{flushing=false;status();if(outbox.length&&!lastErr)setTimeout(flush,300)}}
+  function queue(op){outbox=outbox.filter(o=>o.path!==op.path);outbox.push(op);lsSet('hpt-outbox',outbox);status();clearTimeout(ftimer);ftimer=setTimeout(flush,600)}
+  const set=(p,d)=>{docs[p]=d;persist();queue({op:'set',path:p,data:d})};
+  const del=p=>{delete docs[p];persist();queue({op:'del',path:p})};
+  const ok=k=>k.replace(/\D/g,'');
+  let polling=null;
+  const st={kind:'sheet',url,
+    async init(){await pull(true);polling=setInterval(()=>{if(document.visibilityState==='visible'&&!outbox.length)pull(false).catch(e=>{lastErr='Mất kết nối Google Sheet';status()})},25000);
+      window.addEventListener('focus',()=>pull(false).catch(()=>{}));if(outbox.length)flush()},
+    pullNow(){return pull(false)},
+    has(p){return !!docs[p]},
+    listPatients(cb){L.pl.push(cb);setTimeout(()=>cb(pats()));return()=>{L.pl=L.pl.filter(x=>x!==cb)}},
+    watchCfg(cb){L.cfg.push(cb);setTimeout(()=>cb(docs['config/main']||null));return()=>{}},
+    saveCfg(c){set('config/main',c)},
+    watchPatient(pid,cb){(L.pw[pid]=L.pw[pid]||[]).push(cb);setTimeout(()=>cb(pdata(pid)));return()=>{L.pw[pid]=L.pw[pid].filter(x=>x!==cb)}},
+    saveInfo(pid,info){set('patients/'+pid,info)},
+    saveObs(pid,k,o){set(`patients/${pid}/obs/t${ok(k)}`,o)},delObs(pid,k){del(`patients/${pid}/obs/t${ok(k)}`)},
+    saveLab(pid,k,o){set(`patients/${pid}/labs/x${ok(k)}`,o)},delLab(pid,k){del(`patients/${pid}/labs/x${ok(k)}`)},
+    saveOrder(pid,id,o){set(`patients/${pid}/orders/${id}`,o)},delOrder(pid,id){del(`patients/${pid}/orders/${id}`)},
+    async delPatient(pid){for(const p of Object.keys(docs))if(p===('patients/'+pid)||p.startsWith('patients/'+pid+'/'))del(p);L.pl.forEach(f=>f(pats()))},
+    async importPatient(pid,p){set('patients/'+pid,p.info);for(const[k,o]of Object.entries(p.obs||{}))set(`patients/${pid}/obs/t${ok(k)}`,o);
+      for(const[k,o]of Object.entries(p.labs||{}))set(`patients/${pid}/labs/x${ok(k)}`,o);for(const[id,o]of Object.entries(p.orders||{}))set(`patients/${pid}/orders/${id}`,o);L.pl.forEach(f=>f(pats()))}
+  };return st;
+}
+function connModal(){
+  if(S.mode==='db'){toast('Bản trên link Claude đã dùng chung sẵn, không cần kết nối Google Sheet');return}
+  const c=syncConf()||{};const conn=S.mode==='sheet';
+  const local=lsGet('hpt-data',{patients:{}});const nLocal=Object.keys(local.patients||{}).length;
+  modal(`<h3>Kết nối dữ liệu chung (Google Sheet)</h3>
+   <p class="hint" style="margin:0">${conn?'Máy này <b>đang dùng chung</b> dữ liệu với cả kíp qua Google Sheet của khoa.':'Máy này đang lưu riêng. Nhập địa chỉ Google Sheet (Web app) và mã khoa để dùng chung với cả kíp, hoặc mở <b>link mời</b> Quản trị gửi qua Zalo.'}</p>
+   <label class="fld"><span>Địa chỉ Web app (https://script.google.com/macros/s/…/exec)</span><input class="inp" id="cn_u" value="${esc(c.u||'')}" ${conn?'disabled':''} autocomplete="off"></label>
+   <label class="fld"><span>Mã khoa</span><input class="inp" id="cn_k" type="password" value="${esc(c.k||'')}" ${conn?'disabled':''} autocomplete="off"></label>
+   ${conn&&canAdmin()?`<div class="banner info">Gửi <b>link mời</b> cho nhân viên qua Zalo (tin nhắn riêng): mở link là máy tự kết nối. Link chứa mã khoa – không đăng công khai.</div><button class="btn" data-m="inv">Sao chép link mời</button><input class="inp" id="cn_l" readonly hidden>`:''}
+   ${conn&&nLocal?`<button class="btn" data-m="up">Đưa ${nLocal} hồ sơ đang lưu riêng trên máy này lên dữ liệu chung</button>`:''}
+   <div class="acts">${conn?'<button class="btn danger" data-m="off" style="margin-right:auto">Ngắt kết nối</button>':''}<button class="btn" data-m="cancel">Đóng</button>${conn?'':'<button class="btn pri" data-m="ok">Kết nối</button>'}${conn?'<button class="btn pri" data-m="ok" hidden></button>':''}</div>`,async r=>{
+    if(conn)return;const u=r.querySelector('#cn_u').value.trim(),k=r.querySelector('#cn_k').value.trim();
+    if(!/^https:\/\/script\.google(usercontent)?\.com\//.test(u)){toast('Địa chỉ phải bắt đầu bằng https://script.google.com/');return false}if(!k){toast('Nhập mã khoa');return false}
+    toast('Đang kiểm tra kết nối…');try{const t=makeSheetStore(u,k);await t.init();lsSet('hpt-sync',{u,k});
+      if(!t.has('config/main')&&local.cfg&&Array.isArray(local.cfg.staff)&&local.cfg.staff.length)t.saveCfg(local.cfg);else lsSet('hpt-login',null);toast('Kết nối thành công – đang tải lại');setTimeout(()=>location.reload(),600)}
+    catch(e){toast((e&&e.message)||'Không kết nối được, kiểm tra lại địa chỉ và mã');return false}});
+  const off=document.querySelector('[data-m="off"]');if(off)off.onclick=()=>{lsSet('hpt-sync',null);lsSet('hpt-sheet-cache',null);toast('Đã ngắt kết nối');setTimeout(()=>location.reload(),500)};
+  const inv=document.querySelector('[data-m="inv"]');if(inv)inv.onclick=async()=>{const link=location.origin+location.pathname+'#kn='+b64e({u:c.u,k:c.k});
+    try{await navigator.clipboard.writeText(link);toast('Đã sao chép link mời – dán vào Zalo')}catch(e){const l=document.querySelector('#cn_l');l.hidden=false;l.value=link;l.select();toast('Bôi đen sẵn – bấm Ctrl+C để sao chép')}};
+  const up=document.querySelector('[data-m="up"]');if(up)up.onclick=async()=>{for(const[pid,p]of Object.entries(local.patients||{})){const id=S.patients[pid]?'p'+uid():pid;await store.importPatient(id,{info:p.info,obs:p.obs||{},labs:p.labs||{},orders:p.orders||{}})}
+    lsSet('hpt-data-dagui',local);lsSet('hpt-data',{patients:{},cfg:local.cfg||null});$('#modalRoot').innerHTML='';toast('Đã đưa '+nLocal+' hồ sơ lên dữ liệu chung');renderAll()};
+}
+
 /* debounce ghi theo khoá */
 const deb={};
 function later(key,fn,ms=700){clearTimeout(deb[key]);pendingKeys.add(key);deb[key]=setTimeout(()=>{pendingKeys.delete(key);fn();flashSaved()},ms)}
@@ -601,7 +676,7 @@ function renderList(){
   $('#pcount').textContent=Object.keys(S.patients).length?`${ids.length}/${Object.keys(S.patients).length}`:'';
   $('#plist').innerHTML=ids.length?ids.map(id=>{const p=S.patients[id];const a=arrivalDate(p);
     return `<button class="pitem ${id===S.cur?'on':''}" data-pid="${id}"><b>${esc(p.hoTen||'(Chưa nhập tên)')}</b><span>${p.giuong?'Giường '+esc(p.giuong)+' · ':''}${a?'Về HS '+hLabel(p.veHoiSuc):'Chưa có giờ về HS'}</span></button>`}).join('')
-    :`<div class="empty-side">${S.mode==='pending'?'Đang tải…':'Chưa có bệnh nhân trong danh sách này.'}</div>`;
+    :`<div class="empty-side">${S.mode==='pending'?'Đang tải…':S.mode==='local'?'Chưa có bệnh nhân. Máy này chưa kết nối dữ liệu chung – bấm nút “Lưu trên máy này” ở góc trên.':'Chưa có bệnh nhân trong danh sách này.'}</div>`;
 }
 function renderMain(){
   const m=$('#main');
@@ -610,7 +685,7 @@ function renderMain(){
   if(!S.cur||!S.info){
     m.innerHTML=`<div class="card empty"><h2>Chưa chọn bệnh nhân</h2><p>Tạo hồ sơ bệnh nhân mới khi bệnh nhân về hồi sức. Ứng dụng tự lập lịch theo dõi mỗi giờ trong 24 giờ đầu, sau đó mỗi 3 giờ, và xuất báo cáo Word theo mẫu của khoa.</p>
     <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center"><button class="btn pri" data-act="new">+ Bệnh nhân mới</button><button class="btn" data-act="demo">Tạo hồ sơ mẫu để dùng thử</button><button class="btn" data-act="import">Khôi phục từ file sao lưu</button><button class="btn ghost" data-act="settings">Cài đặt ngưỡng cảnh báo</button></div></div>`;return}
-  m.innerHTML=`${S.mode==='local'?'<div class="banner warn">Đang lưu trên trình duyệt của máy này (chưa đồng bộ cho cả kíp). Hãy dùng “Sao lưu” định kỳ.</div>':''}
+  m.innerHTML=`${S.mode==='local'?'<div class="banner warn">Đang lưu riêng trên máy này, người khác không thấy. Bấm nút <b>Lưu trên máy này</b> ở góc trên để kết nối dữ liệu chung của khoa.</div>':''}
    ${S.shareRo?'<div class="banner crit">Anh/chị đang ở quyền chỉ xem trên link chia sẻ: không ghi được số liệu.</div>':S.ro?`<div class="banner warn">${curUser()?'Tài khoản của anh/chị chỉ có quyền xem.':'Đang ở chế độ chỉ xem. Bấm <b>Đăng nhập ca</b> để nhập liệu.'}</div>`:''}
    <section class="card">${headHtml()}${tabsHtml()}<div class="tab-body" id="tabBody"></div></section>`;
   renderTab();
@@ -1308,6 +1383,7 @@ document.addEventListener('click',e=>{
   if(act==='opennk'){S.obsView='form';S.sel=t.dataset.k;renderTab();return}
   if(act==='login')return loginModal();
   if(act==='quick')return quickModal();
+  if(act==='conn')return connModal();
   if(act==='mypin'){const u=curUser();if(u)staffModal(u);return}
   if(act==='logout'){S.login=null;lsSet('hpt-login',null);renderAll();toast('Đã đăng xuất');return}
   const WRITE=['report','reportadd','new','demo','import','extra','copyprev','calcra','clearobs','addlab','dellab','suggest','planadd','planrem','planpre','plancfg'];
@@ -1391,8 +1467,8 @@ document.addEventListener('change',e=>{
 let _dl=null;const capDownloads={then(r,j){if(!_dl)_dl=(window.claude&&window.claude.use)?Promise.resolve(window.claude.use('downloads')).catch(()=>null):Promise.resolve(null);return _dl.then(r,j)}};
 function start(st){
   store=st;S.mode=st.kind;
-  setSync(st.kind==='db'?'ok':'local',st.kind==='db'?'Đồng bộ cho cả kíp':'Lưu trên máy này');
-  st.watchCfg(c=>{if(st.kind==='local'&&!(c&&Array.isArray(c.staff)&&c.staff.length)){c={...(c||{}),staff:DEFAULT_STAFF};st.saveCfg({...S.cfg,...c})}
+  setSync(st.kind==='local'?'local':'ok',st.kind==='db'?'Đồng bộ cho cả kíp':st.kind==='sheet'?'Dùng chung (Google Sheet)':'Lưu trên máy này – bấm để kết nối');
+  st.watchCfg(c=>{if(st.kind!=='db'&&!(c&&Array.isArray(c.staff)&&c.staff.length)){c={...(c||{}),staff:DEFAULT_STAFF};st.saveCfg({...S.cfg,...c})}
     if(c&&!pendingKeys.has('cfg')){S.cfg={...JSON.parse(JSON.stringify(CFG_DEF)),...c,th:{...TH_DEF,...(c.th||{})}};renderWho();if(S.tab==='caidat'&&!document.activeElement.closest('#main'))renderMain()}});
   let first=true;
   st.listPatients(m=>{
@@ -1413,7 +1489,13 @@ renderList();renderMain();
     try{if(user&&user.can){const w=await user.can('data.write');if(w===false)S.shareRo=true}}catch(e){}
     try{S.isOwner=!!(user&&user.isOwner&&await user.isOwner())}catch(e){}
     start(makeDbStore(db));if(S.shareRo)setSync('local','Chỉ xem');
-  }else start(makeLocalStore());
+  }else{
+    const h=location.hash||'';if(h.startsWith('#kn=')){try{const v=b64d(h.slice(4));if(v.u&&v.k){lsSet('hpt-sync',{u:v.u,k:v.k});lsSet('hpt-sheet-cache',null)}}catch(e){}try{history.replaceState(null,'',location.pathname+location.search)}catch(e){}}
+    const sy=syncConf();
+    if(sy){const ss=makeSheetStore(sy.u,sy.k);try{await ss.init();start(ss)}catch(e){const c=lsGet('hpt-sheet-cache',null);
+      if(c&&c.docs){start(ss);setSync('err','Mất kết nối – đang xem bản lưu gần nhất')}else{start(makeLocalStore());setSync('err',(e&&e.message)||'Không kết nối được Google Sheet')}}}
+    else start(makeLocalStore());
+  }
 })();
 setInterval(()=>{if(S.cur&&S.tab==='theodoi'){const act=document.activeElement;if(act&&act.closest&&act.closest('#tabBody')&&/INPUT|TEXTAREA/.test(act.tagName))return;document.querySelectorAll('.tl-row').forEach(r=>{const t=document.createElement('div');t.innerHTML=rowHtml(r.dataset.k);r.replaceWith(t.firstChild)})}},60000);
 </script>
