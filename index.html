@@ -293,7 +293,7 @@ fieldset{border:0;margin:0;padding:0;min-width:0}
 <header class="top">
   <div class="brand">
     <svg width="34" height="34" viewBox="0 0 34 34" aria-hidden="true"><rect width="34" height="34" rx="8" fill="var(--accent)"/><path d="M4 18h6l3-7 4 13 3-9 2 3h8" fill="none" stroke="var(--on-accent)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-    <div><h1>Theo dõi Hậu phẫu Tim</h1><small>Khoa Gây mê Hồi sức · BVĐK Trung tâm tỉnh Gia Lai · <b>bản 26/10-D</b></small></div>
+    <div><h1>Theo dõi Hậu phẫu Tim</h1><small>Khoa Gây mê Hồi sức · BVĐK Trung tâm tỉnh Gia Lai · <b>bản 26/10-F</b></small></div>
   </div>
   <div class="sp"></div>
   <button class="sync" id="sync" data-act="conn" title="Kết nối dữ liệu chung"><i></i><span>Đang kết nối…</span></button>
@@ -877,7 +877,7 @@ function tabsHtml(){return `<nav class="tabs">${TABS.filter(([k])=>k!=='caidat'|
 function renderTab(){
   if(S.tab==='caidat'&&!canAdmin())S.tab='theodoi';
   const b=$('#tabBody');if(!b)return;
-  if(S.tab==='theodoi')b.innerHTML=obsTabHtml();
+  if(S.tab==='theodoi'){b.innerHTML=obsTabHtml();const ds=$('#dtScroll');if(ds)requestAnimationFrame(()=>{ds.scrollLeft=S.tvNewFirst===false?ds.scrollWidth:0})}
   else if(S.tab==='xetnghiem')b.innerHTML=labTabHtml();
   else if(S.tab==='thongtin')b.innerHTML=infoTabHtml();
   else if(S.tab==='baocao'){b.innerHTML=reportTabHtml();setTimeout(fitPaper,0)}
@@ -922,9 +922,9 @@ function obsTableHtml(filled){
     <label class="rlab">Từ ngày <input type="date" class="inp" id="tvFrom" value="${fr}" min="${d1}" max="${d2}"></label><label class="rlab">đến ngày <input type="date" class="inp" id="tvTo" value="${to}" min="${d1}" max="${d2}"></label></div>`;
   filled=filled.filter(k=>{const d=k.slice(0,10);return (!fr||d>=fr)&&(!to||d<=to)});
   if(!filled.length)return rbar+'<div class="banner info">Không có mốc nào trong khoảng thời gian đã chọn.</div>';
-  const ks=filled.slice().reverse();const p=S.info;
+  const nf=S.tvNewFirst!==false;const ks=nf?filled.slice().reverse():filled.slice();const p=S.info;
   const cell=lines=>lines.map(l=>l.lab!==undefined?`<div>${esc(l.lab)}<span class="${l.red?'redv':''}">${esc(l.t)}</span></div>`:`<div>${esc(l.t)}</div>`).join('');
-  let h=rbar+`<p class="hint" style="margin:0 0 8px">${ks.length} mốc${fr||to?` (${fr?dmy(fr):'đầu'} → ${to?dmy(to):'nay'})`:''}. Mốc mới nhất bên trái. Bấm vào giờ ở tiêu đề cột để mở phiếu nhập của mốc đó.</p><div class="scroll"><table class="lab dtab"><tr><th>Thông số</th>${ks.map(k=>`<th><button class="x2" data-act="opennk" data-k="${k}">N${dayN(k,p)}<br>${hLabel(k)}</button>${S.obs[k].by?`<br><small>${esc(S.obs[k].by)}</small>`:''}</th>`).join('')}</tr>`;
+  let h=rbar+`<p class="hint" style="margin:0 0 8px">${ks.length} mốc${fr||to?` (${fr?dmy(fr):'đầu'} → ${to?dmy(to):'nay'})`:''} · mới nhất: <b>${hLabel(filled[filled.length-1])}</b>. <button class="btn sm ghost" data-act="tvorder">${nf?'Mới nhất bên trái · bấm để xếp cũ → mới như báo cáo':'Cũ → mới như báo cáo · bấm để xếp mới nhất bên trái'}</button> Bấm vào giờ ở tiêu đề cột để mở phiếu nhập.</p><div class="scroll" id="dtScroll"><table class="lab dtab"><tr><th>Thông số</th>${ks.map(k=>`<th><button class="x2" data-act="opennk" data-k="${k}">N${dayN(k,p)}<br>${hLabel(k)}</button>${S.obs[k].by?`<br><small>${esc(S.obs[k].by)}</small>`:''}</th>`).join('')}</tr>`;
   allRows().forEach(([lab,fn])=>{h+=`<tr><td>${lab}</td>${ks.map(k=>`<td class="dc">${cell(cellLines(fn,k))}</td>`).join('')}</tr>`});
   return h+'</table></div>';
 }
@@ -1700,6 +1700,7 @@ document.addEventListener('click',e=>{
   const act=t.dataset.act;if(!act)return;
   if(act==='vform'||act==='vtable'){S.obsView=act==='vtable'?'table':'form';renderTab();return}
   if(act==='opennk'){S.obsView='form';S.sel=t.dataset.k;renderTab();return}
+  if(act==='tvorder'){S.tvNewFirst=S.tvNewFirst===false;renderTab();return}
   if(act==='tvall'){S.tvFrom=S.tvTo='';renderTab();return}
   if(act==='tvday'){S.tvFrom=S.tvTo=t.dataset.d;renderTab();return}
   if(act==='clrsearch'){const i=$('#psearch');if(i)i.value='';S.q='';renderList();return}
