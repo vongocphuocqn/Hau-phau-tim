@@ -293,7 +293,7 @@ fieldset{border:0;margin:0;padding:0;min-width:0}
 <header class="top">
   <div class="brand">
     <svg width="34" height="34" viewBox="0 0 34 34" aria-hidden="true"><rect width="34" height="34" rx="8" fill="var(--accent)"/><path d="M4 18h6l3-7 4 13 3-9 2 3h8" fill="none" stroke="var(--on-accent)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-    <div><h1>Theo dõi Hậu phẫu Tim</h1><small>Khoa Gây mê Hồi sức · BVĐK Trung tâm tỉnh Gia Lai · <b>bản 26/10-G</b></small></div>
+    <div><h1>Theo dõi Hậu phẫu Tim</h1><small>Khoa Gây mê Hồi sức · BVĐK Trung tâm tỉnh Gia Lai · <b>bản 26/10-I</b></small></div>
   </div>
   <div class="sp"></div>
   <button class="sync" id="sync" data-act="conn" title="Kết nối dữ liệu chung"><i></i><span>Đang kết nối…</span></button>
@@ -756,7 +756,7 @@ function schedule(info,obs,full){
   if(s){
     const now=new Date();const curD=Math.max(0,Math.floor((now-s)/864e5));
     let end=new Date(Math.max(now.getTime()+ivNum(intervalAtH(info,Math.max(0,(now-s)/36e5)))*36e5,s.getTime()));
-    if(full){const eod=new Date(now);eod.setHours(23,59,0,0);if(eod>end)end=eod}
+    if(full){const eod=new Date(end);eod.setHours(23,59,0,0);end=eod}
     if(info.trangThai&&info.trangThai!=='dang'){const ks=Object.keys(obs||{}).sort();end=ks.length?fromKey(ks[ks.length-1]):new Date(s.getTime()+24*36e5)}
     const cap=s.getTime()+21*864e5;if(end>cap)end=new Date(cap);
     for(let h=0;;h++){const t=new Date(s.getTime()+h*36e5);if(t>end)break;if(h===0||slotOK(t,h,info))set.add(toKey(t))}
@@ -1890,6 +1890,7 @@ renderList();renderMain();
     const h=location.hash||'';if(h.startsWith('#kn=')){try{const v=b64d(h.slice(4));if(v.u&&v.k){lsSet('hpt-sync',{u:v.u,k:v.k});lsSet('hpt-sheet-cache',null)}}catch(e){}try{history.replaceState(null,'',location.pathname+location.search)}catch(e){}}
     let fbdb=null;try{fbdb=await fbConnect()}catch(e){console.warn('Firebase',e)}
     if(fbdb){S.mode='fb';start(makeFbStore(fbdb));renderWho();return}
+    if(location.protocol==='file:'){const bn=document.createElement('div');bn.className='banner warn';bn.style.cssText='margin:10px 16px;font-size:15px';bn.innerHTML='<b>⚠ Đang mở file lưu trên máy – KHÔNG phải dữ liệu chung của khoa.</b> Dữ liệu ở đây chỉ nằm trên máy này. Hãy tải file này lên GitHub (repo Hau-phau-tim) rồi mở bằng link <a href="https://vongocphuocqn.github.io/Hau-phau-tim/">https://vongocphuocqn.github.io/Hau-phau-tim/</a>.';document.body.insertBefore(bn,document.body.firstChild)}
     const sy=syncConf();
     if(sy){const ss=makeSheetStore(sy.u,sy.k);try{await ss.init();if(ss.ro)S.shareRo=true;start(ss)}catch(e){const c=lsGet('hpt-sheet-cache',null);
       if(c&&c.docs){start(ss);setSync('err','Mất kết nối – đang xem bản lưu gần nhất')}else{start(makeLocalStore());setSync('err',(e&&e.message)||'Không kết nối được Google Sheet')}}}
