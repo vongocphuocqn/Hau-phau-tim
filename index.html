@@ -293,7 +293,7 @@ fieldset{border:0;margin:0;padding:0;min-width:0}
 <header class="top">
   <div class="brand">
     <svg width="34" height="34" viewBox="0 0 34 34" aria-hidden="true"><rect width="34" height="34" rx="8" fill="var(--accent)"/><path d="M4 18h6l3-7 4 13 3-9 2 3h8" fill="none" stroke="var(--on-accent)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-    <div><h1>Theo dõi Hậu phẫu Tim</h1><small>Khoa Gây mê Hồi sức · BVĐK Trung tâm tỉnh Gia Lai · <b>bản 26/10-F</b></small></div>
+    <div><h1>Theo dõi Hậu phẫu Tim</h1><small>Khoa Gây mê Hồi sức · BVĐK Trung tâm tỉnh Gia Lai · <b>bản 26/10-G</b></small></div>
   </div>
   <div class="sp"></div>
   <button class="sync" id="sync" data-act="conn" title="Kết nối dữ liệu chung"><i></i><span>Đang kết nối…</span></button>
@@ -362,6 +362,10 @@ const CFG_DEF={plan:[1],planRest:3,donviTren:'BỆNH VIỆN THỐNG NHẤT',donv
 const $=s=>document.querySelector(s);
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const pad=n=>String(n).padStart(2,'0');
+const flHrs=(o,f)=>{const m=String(o&&o[f]||'').match(/\/\s*(\d+(?:[.,]\d+)?)\s*(h|g)/i);const h=m?parseFloat(m[1].replace(',','.')):+(o&&o[f+'H'])||1;return h>0?h:1};
+const flAmt=(o,f)=>num(o&&o[f]);
+const flPerH=(o,f)=>{const a=flAmt(o,f);return isNaN(a)?NaN:Math.round(a/flHrs(o,f)*10)/10};
+const flTxt=(o,f,unit)=>{const a=flAmt(o,f);if(isNaN(a))return String(o[f]||'');const h=flHrs(o,f);return unit?`${fmtN(a)} ml/${h===1?'giờ':h+' giờ'}`:`${fmtN(a)}/${h}h`};
 const num=v=>{if(v===undefined||v===null||v==='')return NaN;const x=parseFloat(String(v).replace(',','.'));return x};
 const has=v=>v!==undefined&&v!==null&&String(v).trim()!=='';
 const toKey=d=>`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
@@ -815,9 +819,9 @@ function flagsOf(o,k){
   add('m',lvl(num(o.m),th.m),`Mạch ${o.m} l/ph`);
   add('hatt',lvl(num(o.hatt),th.hatt),`HA tâm thu ${o.hatt} mmHg`);
   add('t',lvl(num(o.t),th.t),`Nhiệt độ ${o.t} °C`);
-  const w=weightOf(S.info||{},S.obs,k);const u=num(o.nuoctieu);
-  if(!isNaN(u)){const r=u/(w||60);const l=lvl(r,th.nuoctieu);add('nuoctieu',l,`Nước tiểu ${o.nuoctieu} ml/giờ (${fmtN(r)} ml/kg/giờ${w?'':', ước 60 kg'})`)}
-  add('danluu',lvl(num(o.danluu),th.danluu),`Dẫn lưu ${o.danluu} ml/giờ${o.tinhchat?' – '+o.tinhchat:''}`);
+  const w=weightOf(S.info||{},S.obs,k);const u=flPerH(o,'nuoctieu');
+  if(!isNaN(u)){const r=u/(w||60);const l=lvl(r,th.nuoctieu);add('nuoctieu',l,`Nước tiểu ${flTxt(o,'nuoctieu',1)} (${fmtN(r)} ml/kg/giờ${w?'':', ước 60 kg'})`)}
+  add('danluu',lvl(flPerH(o,'danluu'),th.danluu),`Dẫn lưu ${flTxt(o,'danluu',1)}${o.tinhchat?' – '+o.tinhchat:''}`);
   add('dh',lvl(num(o.dh),th.dh),`Đường huyết ${o.dh} mmol/L`);
   msgs.sort((a,b)=>a.l===b.l?0:a.l==='crit'?-1:1);
   return {f:out,m:msgs};
@@ -853,7 +857,7 @@ function headHtml(){
   const due=keys.find(k=>status(k,S.obs[k])==='due');
   const next=keys.find(k=>fromKey(k)>now&&!hasData(S.obs[k]));
   const filled=keys.filter(k=>hasData(S.obs[k]));
-  let cum=0,cu=0;filled.forEach(k=>{const b=bilan(S.obs[k]);if(!isNaN(b))cum+=b;const u=num(S.obs[k].nuoctieu);if(!isNaN(u))cu+=u});
+  let cum=0,cu=0;filled.forEach(k=>{const b=bilan(S.obs[k]);if(!isNaN(b))cum+=b;const u=flAmt(S.obs[k],'nuoctieu');if(!isNaN(u))cu+=u});
   const last=filled[filled.length-1];const lf=last?flagsOf(S.obs[last],last):{m:[]};
   const age=p.namSinh?(new Date().getFullYear()-parseInt(String(p.namSinh).slice(-4))):'';
   return `<div class="pt-head"><div style="min-width:0">
@@ -905,7 +909,7 @@ function obsTabHtml(){
   const p=S.info;if(!arrivalDate(p))return `<div class="banner info">Nhập <b>giờ về hồi sức</b> ở tab “Thông tin bệnh nhân” để ứng dụng lập lịch theo dõi.</div><div style="margin-top:10px"><button class="btn pri" data-tab="thongtin">Nhập thông tin</button></div>`;
   const keys=schedule(p,S.obs,true);const filled=keys.filter(k=>hasData(S.obs[k]));
   let cum=0;const cumS=filled.map(k=>{const b=bilan(S.obs[k]);if(!isNaN(b))cum+=b;return {y:cum}});
-  const ser=f=>filled.map(k=>({y:num(S.obs[k][f])}));
+  const ser=f=>filled.map(k=>({y:['nuoctieu','danluu'].includes(f)?flPerH(S.obs[k],f):num(S.obs[k][f])}));
   const pbar=`<div class="planbar"><span><b>Lịch theo dõi:</b> ${esc(planText(p))}${(Array.isArray(p.extraSlots)&&p.extraSlots.length)?` · ${p.extraSlots.length} mốc khai báo thêm`:''}</span>${canAdmin()&&!S.ro?'<button class="btn sm" data-act="editplan">⚙ Sửa lịch bệnh nhân này</button>':''}</div>`;
   const trends=pbar+`<div class="trends">${spark('Mạch','l/ph',ser('m'))}${spark('HA tâm thu','mmHg',ser('hatt'))}${spark('SpO₂','%',ser('spo2'))}${spark('Nước tiểu','ml/giờ',ser('nuoctieu'))}${spark('Dẫn lưu','ml/giờ',ser('danluu'))}${spark('Bilan cộng dồn','ml',cumS)}</div>`;
   if(!S.sel||!keys.includes(S.sel)){S.sel=keys.find(k=>status(k,S.obs[k])==='due')||filled[filled.length-1]||[...keys].reverse().find(k=>status(k,S.obs[k])==='late')||keys[0]}
@@ -947,13 +951,15 @@ function timelineHtml(keys){
 function dsumTxt(done,ks){const miss=ks.filter(k=>!hasData(S.obs[k])&&status(k,S.obs[k])!=='up').length;const up=ks.filter(k=>!hasData(S.obs[k])&&status(k,S.obs[k])==='up').length;return `${ks.length} mốc · đã nhập ${done}`+(miss?` · chưa nhập ${miss}`:'')+(up?` · chưa đến giờ ${up}`:'')}
 function rowHtml(k){
   const o=S.obs[k],st=status(k,o);const fl=flagsOf(o,k);
-  const v=hasData(o)?[o.m&&'M '+o.m,(o.hatt||o.hatr)&&'HA '+(o.hatt||'?')+'/'+(o.hatr||'?'),o.spo2&&'SpO₂ '+o.spo2,o.nuoctieu&&'Tiểu '+o.nuoctieu,o.danluu&&'DL '+o.danluu].filter(Boolean).join(' · ')
+  const v=hasData(o)?[o.m&&'M '+o.m,(o.hatt||o.hatr)&&'HA '+(o.hatt||'?')+'/'+(o.hatr||'?'),o.spo2&&'SpO₂ '+o.spo2,o.nuoctieu&&'Tiểu '+flTxt(o,'nuoctieu'),o.danluu&&'DL '+flTxt(o,'danluu')].filter(Boolean).join(' · ')
     :({up:'Chưa đến giờ',due:'Đến giờ ghi',late:'Chưa nhập'}[st]);
   const crit=fl.m.filter(x=>x.l==='crit').length,warn=fl.m.length-crit;
   const extra=o&&o.slot&&o.slot!==k?'<span class="badge extra">đổi giờ</span>':!isScheduled(k,S.info)?'<span class="badge extra">bổ sung</span>':'';
   const badge='<span class="bdg">'+(st==='done'?'<span class="badge ok">✓ Đã nhập</span>':st==='late'?'<span class="badge late">Chưa nhập</span>':st==='due'?'<span class="badge due">Nhập ngay</span>':st==='up'?'<span class="badge extra">Chưa đến giờ</span>':'')+(crit?`<span class="badge crit">${crit} nặng</span>`:warn?`<span class="badge warn">${warn} lưu ý</span>`:'')+extra+'</span>';
   return `<button class="tl-row ${k===S.sel?'on':''}" data-k="${k}"><span class="dot ${st}"></span><span class="t num">${hhmm(k)}</span><span class="v">${esc(v)}</span>${badge}</button>`;
 }
+function nfH(f,label,o,fl){const v=o[f]??'';const m=String(v).match(/^\s*([\d.,]+)\s*(ml)?\s*\/\s*(\d+)\s*(h|g)/i);const amt=m?m[1]:v;const h=m?+m[3]:(+o[f+'H']||1);
+  return `<label class="fld"><span>${label}</span><span style="display:flex;gap:4px;align-items:center"><input class="n ${fl[f]||''}" inputmode="decimal" data-f="${f}" id="o_${f}" value="${esc(amt)}" autocomplete="off" style="width:80px"><select class="inp" data-f="${f}H" id="o_${f}H" style="width:auto;height:38px;padding:2px 4px" title="Lượng đo trong bao nhiêu giờ">${[1,2,3,4,6,12,24].map(x=>`<option value="${x}" ${x===h?'selected':''}>/${x}h</option>`).join('')}</select></span><small class="u">ml · chọn số giờ đo</small></label>`}
 function nf(f,label,unit,o,fl,cls=''){return `<label class="fld"><span>${label}</span><input class="n ${cls} ${fl[f]||''}" inputmode="decimal" data-f="${f}" id="o_${f}" value="${esc(o[f]??'')}" autocomplete="off"><small class="u">${unit}</small></label>`}
 function chipParts(v,opts){if(!has(v))return [];v=String(v);if(opts.includes(v))return [v];return v.split(/\s*;\s*/).map(x=>x.trim()).filter(Boolean)}
 function chipCompose(box){const sel=[...box.querySelectorAll('.chip.on[data-chip]')].map(c=>c.dataset.v);const w=box.querySelector('.khacw');const tx=w&&!w.hidden?w.querySelector('input').value.trim():'';return [...sel,...(tx?[tx]:[])].join('; ')}
@@ -974,7 +980,7 @@ function formHtml(k){
    <div class="fsec"><div class="lbl">Huyết động</div><div style="display:grid;gap:8px"><div class="frow">${nf('m','Mạch','lần/phút',o,fl.f)}${nf('hatt','HA tâm thu','mmHg',o,fl.f)}${nf('hatr','HA tâm trương','mmHg',o,fl.f)}${nf('cvp','CVP','cmH₂O',o,fl.f)}</div>
      <label class="fld grow"><span>Thuốc vận mạch / trợ tim</span><input data-f="vanmach" id="o_vanmach" list="dl_vanmach" autocomplete="off" value="${esc(o.vanmach||'')}" placeholder="Bấm để chọn gợi ý hoặc gõ (VD: Noradrenalin 0,1 µg/kg/ph)">${dlHtml('dl_vanmach',sugList('vanmach'))}</label></div></div>
    <div class="fsec"><div class="lbl">Nhiệt độ – Đường huyết</div><div class="frow">${nf('t','Nhiệt độ','°C',o,fl.f)}${nf('dh','Đường huyết','mmol/L',o,fl.f)}${nf('cannang','Cân nặng','kg',o,fl.f)}</div></div>
-   <div class="fsec"><div class="lbl">Nước tiểu – Dẫn lưu</div><div style="display:grid;gap:8px"><div class="frow">${nf('nuoctieu','Nước tiểu','ml/giờ',o,fl.f)}${nf('danluu','Dẫn lưu','ml/giờ',o,fl.f)}</div>${chips('tinhchat',TINHCHAT,o)}</div></div>
+   <div class="fsec"><div class="lbl">Nước tiểu – Dẫn lưu</div><div style="display:grid;gap:8px"><div class="frow">${nfH('nuoctieu','Nước tiểu',o,fl.f)}${nfH('danluu','Dẫn lưu',o,fl.f)}</div>${chips('tinhchat',TINHCHAT,o)}</div></div>
    <div class="fsec"><div class="lbl">Dịch vào – ra</div><div class="frow">${nf('vao','Tổng dịch vào','ml',o,fl.f,'w')}${nf('ra','Tổng dịch ra','ml',o,fl.f,'w')}
      <button type="button" class="btn sm" data-act="calcra" title="Dịch ra = nước tiểu + dẫn lưu${extraFields().some(f=>f.ra)?' + trường bổ sung':''}">Tính lại dịch ra</button><span class="hint" id="raHint">${o.raTay?'nhập tay':'tự tính'}</span>
      <span class="calc" id="bilanOut">Bilan: <span class="num">${isNaN(b)?'—':signed(b)+' ml'}</span></span></div><div id="fluidTot" class="ftot-wrap">${fluidHtml(k)}</div></div>
@@ -1002,6 +1008,7 @@ function stampObs(o,prev){if(!hasData(prev)){o.by=actorName();o.byId=actorId();d
 function updateObsField(k,f,v){
   const prev=S.obs[k];if(hasData(prev)&&!canEditRec(prev.byId)){toast('Mốc này do '+(prev.by||'người khác')+' ghi – chỉ người ghi hoặc Quản trị được sửa');return}
   const o={...(S.obs[k]||{}),k};if(v===''||v==null)delete o[f];else o[f]=v;
+  ['nuoctieu','danluu'].forEach(x=>{const m=String((prev||{})[x]||'').match(/\/\s*(\d+)\s*(h|g)/i);if(m&&!o[x+'H']&&x!==f+'_')o[x+'H']=m[1];const m2=String(o[x]||'').match(/^\s*([\d.,]+)\s*(ml)?\s*\/\s*(\d+)\s*(h|g)/i);if(m2){if(!o[x+'H'])o[x+'H']=m2[3];o[x]=m2[1]}});
   if(f==='ra'){if(v===''||v==null)delete o.raTay;else o.raTay=true}
   if(f==='ra'&&!o.raTay||raFields().includes(f)&&!o.raTay){const a=autoRa(o);if(a==='')delete o.ra;else o.ra=a;const ri=document.querySelector('#o_ra');if(ri&&document.activeElement!==ri)ri.value=o.ra||''}
   stampObs(o,prev);o.at=Date.now();S.obs[k]=o;
@@ -1187,8 +1194,8 @@ const ROWS=[
   ['Hô hấp',o=>[[o.hohap],has(o.nt)&&['NT: ',o.nt,'nt'],has(o.spo2)&&['SpO2: ',o.spo2+'%','spo2'],has(o.fio2)&&['FiO2: ',o.fio2+'%']]],
   ['Huyết động',o=>[has(o.m)&&['M: ',o.m,'m'],(has(o.hatt)||has(o.hatr))&&['HA: ',(o.hatt||'?')+'/'+(o.hatr||'?'),'hatt'],has(o.cvp)&&['CVP: ',o.cvp],[o.vanmach]]],
   ['Nhiệt độ',o=>[has(o.t)&&['',o.t+' °C','t']]],
-  ['Nước tiểu (ml)',o=>[has(o.nuoctieu)&&['',o.nuoctieu+'/1h','nuoctieu']]],
-  ['Dẫn lưu',o=>[has(o.danluu)&&['',o.danluu+' ml/giờ','danluu'],[o.tinhchat]]],
+  ['Nước tiểu (ml)',o=>[has(o.nuoctieu)&&['',flTxt(o,'nuoctieu'),'nuoctieu']]],
+  ['Dẫn lưu',o=>[has(o.danluu)&&['',flTxt(o,'danluu',1),'danluu'],[o.tinhchat]]],
   ['Tổng dịch vào (ml)',o=>[[o.vao]]],
   ['Tổng dịch ra (ml)',o=>[[o.ra]]],
   ['Bilan (ml)',o=>{const b=bilan(o);return [[isNaN(b)?'':signed(b)]]}],
@@ -1348,7 +1355,7 @@ async function buildXlsxBlob(){
   /* --- Sheet 1: theo dõi --- */
   const COLS=[['Ngày','n',6],['Giờ','gio',13],['Ý thức','ythuc',16],['Hô hấp','hohap',11],['NT (l/ph)','nt',7],['SpO₂ (%)','spo2',7],['FiO₂ (%)','fio2',7],
     ['Mạch (l/ph)','m',7],['HA tâm thu','hatt',7],['HA tâm trương','hatr',8],['CVP','cvp',6],['Vận mạch','vanmach',20],['Nhiệt độ (°C)','t',7],
-    ['Nước tiểu (ml/h)','nuoctieu',8],['Dẫn lưu (ml/h)','danluu',8],['Tính chất DL','tinhchat',13],['Dịch vào (ml)','vao',8],['Dịch ra (ml)','ra',8],
+    ['Nước tiểu (ml)','nuoctieu',8],['Số giờ đo NT','nuoctieuH',7],['Dẫn lưu (ml)','danluu',8],['Số giờ đo DL','danluuH',7],['Tính chất DL','tinhchat',13],['Dịch vào (ml)','vao',8],['Dịch ra (ml)','ra',8],
     ['Bilan (ml)','bilan',8],['Bilan cộng dồn (ml)','cum',9],['Cân nặng (kg)','cannang',7],['Đường huyết (mmol/L)','dh',9],...extraFields().map(f=>[f.l+(f.u?` (${f.u})`:''),'x_'+f.k,12]),['Diễn biến lâm sàng / ghi chú','lamsang',34],['Khác','khac',26],['Người ghi','by',16]];
   const ws=wb.addWorksheet('Theo dõi',{pageSetup:{paperSize:9,orientation:'landscape',fitToPage:true,fitToWidth:1,fitToHeight:0,margins:{left:.3,right:.3,top:.4,bottom:.4,header:.2,footer:.2}}});
   ws.columns=COLS.map(c=>({width:c[2]}));
@@ -1360,7 +1367,7 @@ async function buildXlsxBlob(){
     ['nuoctieu','danluu','vao','ra'].forEach(f=>{const x=num(o[f]);if(!isNaN(x))tot[f]+=x});
     const row=ws.getRow(r++);
     COLS.forEach(([,f],i)=>{const c=row.getCell(i+1);
-      c.value=f==='n'?'N'+dayN(k,p):f==='gio'?hLabel(k):f==='bilan'?(isNaN(b)?null:b):f==='cum'?cum:val(o[f]);
+      c.value=f==='n'?'N'+dayN(k,p):f==='gio'?hLabel(k):f==='bilan'?(isNaN(b)?null:b):f==='cum'?cum:(f==='nuoctieuH'||f==='danluuH')?(has(o[f.slice(0,-1)])?flHrs(o,f.slice(0,-1)):null):(f==='nuoctieu'||f==='danluu')?(isNaN(flAmt(o,f))?val(o[f]):flAmt(o,f)):val(o[f]);
       c.font={name:F,size:11,bold:f==='n'||f==='gio'};c.border=BOX;c.alignment={vertical:'middle',wrapText:true,horizontal:typeof c.value==='number'?'center':'left'};
       if(idx%2===0)c.fill=fill('DCE6F1');
       const fk=f==='hatr'?null:f;if(fk&&fl[fk]){c.font={name:F,size:11,bold:true,color:{argb:'FFC00000'}};c.fill=fill(fl[fk]==='crit'?'F8D7D3':'FFF2CC')}
@@ -1600,8 +1607,8 @@ function parseObsCell(lab,cell,o,notes){
   if(L.startsWith('huyet dong')){const s=lines.join(' ');const m=s.match(/M\s*:?\s*(\d+)/);if(m)o.m=m[1];const ha=s.match(/HA\s*:?\s*(\d+)\s*\/\s*(\d+)/i);if(ha){o.hatt=ha[1];o.hatr=ha[2]}const cv=s.match(/CVP\s*:?\s*(\d+)/i);if(cv)o.cvp=cv[1];return}
   if(L.startsWith('nhiet do')){const v=numV(raw);if(v)o.t=v;return}
   if(L.startsWith('nuoc tieu')){const m=nrm(raw).replace(/\s+/g,'').match(/(\d+)(ml)?(\/(\d*)h)?/);if(!m)return;const amt=+m[1],hrs=m[3]?(+m[4]||1):1;
-    if(hrs<=4){o.nuoctieu=String(Math.round(amt/hrs));if(hrs>1)notes.push(`Nước tiểu ${amt} ml/${hrs} giờ`)}else notes.push(`Nước tiểu ${amt} ml/${hrs} giờ`);return}
-  if(L.startsWith('dan luu')){const f=nrm(lines[0]).replace(/\s+/g,'');const m=f.match(/^(\d+)(ml)?(\/(\d*)(h|gio))?/);if(m){const hrs=m[3]?(+m[4]||1):1;if(hrs<=4)o.danluu=String(Math.round(+m[1]/hrs));else notes.push(`Dẫn lưu ${+m[1]} ml/${hrs} giờ`)}
+    if(hrs<=4){o.nuoctieu=String(amt);if(hrs>1)o.nuoctieuH=String(hrs)}else notes.push(`Nước tiểu ${amt} ml/${hrs} giờ`);return}
+  if(L.startsWith('dan luu')){const f=nrm(lines[0]).replace(/\s+/g,'');const m=f.match(/^(\d+)(ml)?(\/(\d*)(h|gio))?/);if(m){const hrs=m[3]?(+m[4]||1):1;if(hrs<=4){o.danluu=String(+m[1]);if(hrs>1)o.danluuH=String(hrs)}else notes.push(`Dẫn lưu ${+m[1]} ml/${hrs} giờ`)}
     lines.slice(m?1:0).forEach(l=>{const x=l.replace(/^dịch\s*:?\s*/i,'').trim();if(x)o.tinhchat=(o.tinhchat?o.tinhchat+'; ':'')+x});return}
   if(L.startsWith('tong dich vao')||L.startsWith('tong dich ra')){const f=nrm(raw).replace(/\s+/g,'');const m=f.match(/(\d+)(ml)?(\/(\d+)h)?/);if(!m)return;const ra=L.includes(' ra');
     if(ra){o.ra=m[1];o.raTay=true}else o.vao=m[1];if(m[4])notes.push(`Dịch ${ra?'ra':'vào'} ${m[1]} ml/${m[4]} giờ`);return}
@@ -1663,7 +1670,7 @@ async function importDocx(file){
       const over=r.querySelector('#dxOver').checked;const pid=S.cur;let a=0,b=0;
       r.querySelectorAll('.dxck:checked').forEach(c=>{const i=+c.dataset.i;
         if(c.dataset.kind==='o'){const {k,o}=rows[i];const cur=S.obs[k]||{};let n;
-          if(hasData(cur)){n={...cur};OBS_CMP.concat(['raTay','khac']).forEach(f=>{if(has(o[f])&&(over||!has(cur[f])))n[f]=o[f]});n.suaBoi=actorName()}
+          if(hasData(cur)){n={...cur};OBS_CMP.concat(['raTay','khac','nuoctieuH','danluuH']).forEach(f=>{if(has(o[f])&&(over||!has(cur[f])))n[f]=o[f]});n.suaBoi=actorName()}
           else n={...o,k,by:'Nhập từ file báo cáo',byId:''};n.at=Date.now();S.obs[k]=n;store.saveObs(pid,k,n);a++}
         else{const {k,v}=lrows[i];const L=S.labs[k]||{k,v:{},byId:'',by:'Nhập từ file báo cáo'};const nv={...(L.v||{})};Object.entries(v).forEach(([x,y])=>{if(over||!has(nv[x]))nv[x]=y});
           S.labs[k]={...L,v:nv};store.saveLab(pid,k,{k,v:nv,byId:L.byId||'',by:L.by||'Nhập từ file báo cáo'});b++}});
